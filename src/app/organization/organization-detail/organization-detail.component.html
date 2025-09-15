@@ -1,0 +1,68 @@
+
+<div class="w-full min-h-[60vh] flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 py-8">
+	<div class="bg-white rounded-xl shadow-lg border border-blue-200 p-8 w-full max-w-md flex flex-col gap-6">
+		<div class="flex items-center gap-2 mb-4">
+			<button (click)="goBack()" class="pButton p-button-rounded bg-blue-100 text-blue-800 hover:bg-blue-200 px-2 py-1 mr-2">
+				<i class="pi pi-arrow-left text-blue-800"></i>
+			</button>
+			<h2 class="text-2xl font-bold text-blue-800 flex items-center gap-2">
+				<i class="pi pi-building text-yellow-400 text-2xl"></i>
+				Detalle de organización
+			</h2>
+		</div>
+		<div *ngIf="loading" class="flex items-center justify-center h-32">
+			<i class="pi pi-spin pi-spinner text-blue-600 text-4xl"></i>
+			<span class="ml-3 text-blue-600 font-semibold">Cargando organización...</span>
+		</div>
+		<div *ngIf="error" class="text-red-500 font-semibold mb-4">{{ error }}</div>
+		<div *ngIf="organization" class="flex flex-col gap-4">
+			<div>
+				<span class="block text-lg font-bold text-blue-800 mb-1">Nombre:</span>
+				<span class="block text-xl">{{ organization.name }}</span>
+			</div>
+			<div>
+				<span class="block text-lg font-bold text-blue-800 mb-1">Slug:</span>
+				<span class="block font-mono">{{ organization.slug }}</span>
+			</div>
+			<div>
+				<span class="block text-lg font-bold text-blue-800 mb-1">Creado el:</span>
+				<span class="block">{{ organization.created_at | date:'medium' }}</span>
+				</div>
+				<!-- Sección de proyectos -->
+				<div *ngIf="organization" class="mt-8">
+					<div class="flex items-center gap-4 mb-4">
+						<h3 class="text-xl font-bold text-blue-800 flex items-center gap-2">
+							<i class="pi pi-folder text-yellow-400 text-xl"></i>
+							Proyectos
+						</h3>
+						<button (click)="goToProjectList()" class="pButton p-button-rounded bg-yellow-300 text-blue-800 hover:bg-yellow-400 font-semibold px-3 py-1 flex items-center gap-2 transition shadow">
+							<i class="pi pi-list text-blue-800"></i>
+							Ver todos
+						</button>
+					</div>
+					<div *ngIf="projects.length === 0" class="text-gray-500 font-semibold">No hay proyectos en esta organización.</div>
+					<table *ngIf="projects.length > 0" class="w-full border border-blue-200 rounded-lg overflow-hidden">
+						<thead class="bg-blue-100">
+							<tr>
+								<th class="px-4 py-2 text-left text-blue-800 font-bold">Nombre</th>
+								<th class="px-4 py-2 text-left text-blue-800 font-bold">Creado el</th>
+								<th class="px-4 py-2"></th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr *ngFor="let project of projects" class="border-t border-blue-100">
+								<td class="px-4 py-2">{{ project.name }}</td>
+								<td class="px-4 py-2">{{ project.created_at | date:'medium' }}</td>
+								<td class="px-4 py-2">
+									<button (click)="goToProjectDetail(project)" class="pButton p-button-rounded bg-yellow-300 text-blue-800 hover:bg-yellow-400 font-semibold px-3 py-1 flex items-center gap-2 transition shadow">
+										<i class="pi pi-eye text-blue-800"></i>
+										Ver detalle
+									</button>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+</div>

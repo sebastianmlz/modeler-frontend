@@ -1,0 +1,10 @@
+/* Estilos base para el editor de diagrama UML */
+.diagram-canvas {
+	min-height: 600px;
+	height: 600px;
+	width: 100%;
+	overflow: auto;
+}
+.pButton {
+	@apply shadow hover:shadow-lg transition duration-150;
+}

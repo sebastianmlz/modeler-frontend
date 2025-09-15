@@ -1,0 +1,7 @@
+/* Estilos adicionales para tarjetas de proyecto */
+.pButton {
+	@apply shadow hover:shadow-lg transition duration-150;
+}
+.group:hover .group-hover\:text-yellow-500 {
+	color: #facc15;
+}

@@ -37,6 +37,14 @@ yarn-error.log
 testem.log
 /typings
 
+# Ignorar archivo de conclusión
+CONCLUSIÓN FINAL - FASE 1 COMPLE.txt
+
+# Ocultar archivos de entorno
+/src/environments/environment.ts
+/src/environments/environment.prod.ts
+/src/environments/*.local.ts
+
 # System files
 .DS_Store
 Thumbs.db

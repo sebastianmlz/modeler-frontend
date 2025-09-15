@@ -1,0 +1,53 @@
+
+<div class="w-full min-h-[60vh] flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 py-8">
+	<div class="bg-white rounded-xl shadow-lg border border-blue-200 p-8 w-full max-w-md flex flex-col gap-6">
+		<div class="flex items-center gap-2 mb-4">
+			<button (click)="goBack()" class="pButton p-button-rounded bg-blue-100 text-blue-800 hover:bg-blue-200 px-2 py-1 mr-2">
+				<i class="pi pi-arrow-left text-blue-800"></i>
+			</button>
+			<h2 class="text-2xl font-bold text-blue-800 flex items-center gap-2">
+				<i class="pi pi-sitemap text-yellow-400 text-2xl"></i>
+				Detalle de diagrama
+			</h2>
+		</div>
+		<div *ngIf="loading" class="flex items-center justify-center h-32">
+			<i class="pi pi-spin pi-spinner text-blue-600 text-4xl"></i>
+			<span class="ml-3 text-blue-600 font-semibold">Cargando diagrama...</span>
+		</div>
+		<div *ngIf="error" class="text-red-500 font-semibold mb-4">{{ error }}</div>
+		<div *ngIf="diagram" class="flex flex-col gap-4">
+			<div>
+				<span class="block text-lg font-bold text-blue-800 mb-1">Nombre:</span>
+				<span class="block text-xl">{{ diagram.name }}</span>
+			</div>
+			<div>
+				<span class="block text-lg font-bold text-blue-800 mb-1">ID:</span>
+				<span class="block font-mono">{{ diagram.id }}</span>
+			</div>
+			<div>
+				<span class="block text-lg font-bold text-blue-800 mb-1">Creado el:</span>
+				<span class="block">{{ diagram.created_at | date:'medium' }}</span>
+			</div>
+			<button (click)="goToEdit()" class="pButton p-button-rounded bg-yellow-300 text-blue-800 hover:bg-yellow-400 font-semibold px-4 py-2 flex items-center gap-2 transition shadow w-full justify-center mt-4">
+				<i class="pi pi-pencil text-blue-800"></i>
+				Editar diagrama
+			</button>
+
+			<div class="mt-6">
+				<span class="block text-lg font-bold text-blue-800 mb-2">Versiones guardadas:</span>
+				<div *ngIf="loadingVersions" class="flex items-center gap-2 text-blue-600"><i class="pi pi-spin pi-spinner"></i> Cargando versiones...</div>
+				<div *ngIf="!loadingVersions && versions.length === 0" class="text-gray-500">No hay versiones guardadas.</div>
+				<ul *ngIf="versions.length > 0" class="flex flex-col gap-2">
+					<li *ngFor="let v of versions" class="border border-blue-200 rounded px-3 py-2 flex flex-col md:flex-row md:items-center gap-2">
+						<div class="flex-1">
+							<span class="font-bold text-blue-800">Versión {{ v.version_number }}</span>
+							<span class="ml-2 text-gray-700">{{ v.message }}</span>
+							<span class="ml-2 text-xs text-gray-500">{{ v.created_at | date:'short' }}</span>
+						</div>
+						<button (click)="openVersion(v.id)" class="pButton p-button-rounded bg-blue-100 text-blue-800 hover:bg-blue-200 px-3 py-1">Abrir diagrama</button>
+					</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+</div>

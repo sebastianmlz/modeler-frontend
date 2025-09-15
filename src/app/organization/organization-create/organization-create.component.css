@@ -1,0 +1,4 @@
+/* Estilos para el formulario de creación de organización */
+.pButton {
+	@apply shadow hover:shadow-lg transition duration-150;
+}

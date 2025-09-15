@@ -1,0 +1,75 @@
+
+<div class="w-full min-h-[60vh] flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 py-8">
+	<div class="bg-white rounded-xl shadow-lg border border-blue-200 p-8 w-full max-w-md flex flex-col gap-6">
+		<div class="flex items-center gap-2 mb-4">
+			<button (click)="goBack()" class="pButton p-button-rounded bg-blue-100 text-blue-800 hover:bg-blue-200 px-2 py-1 mr-2">
+				<i class="pi pi-arrow-left text-blue-800"></i>
+			</button>
+			<h2 class="text-2xl font-bold text-blue-800 flex items-center gap-2">
+				<i class="pi pi-folder text-yellow-400 text-2xl"></i>
+				Detalle de proyecto
+			</h2>
+		</div>
+		<div *ngIf="loading" class="flex items-center justify-center h-32">
+			<i class="pi pi-spin pi-spinner text-blue-600 text-4xl"></i>
+			<span class="ml-3 text-blue-600 font-semibold">Cargando proyecto...</span>
+		</div>
+		<div *ngIf="error" class="text-red-500 font-semibold mb-4">{{ error }}</div>
+		<div *ngIf="project" class="flex flex-col gap-4">
+			<div>
+				<span class="block text-lg font-bold text-blue-800 mb-1">Nombre:</span>
+				<span class="block text-xl">{{ project.name }}</span>
+			</div>
+			<div>
+				<span class="block text-lg font-bold text-blue-800 mb-1">Key:</span>
+				<span class="block font-mono">{{ project.key }}</span>
+			</div>
+			<div>
+				<span class="block text-lg font-bold text-blue-800 mb-1">Tipo:</span>
+				<span class="block" [ngClass]="project.is_private ? 'text-red-500' : 'text-green-600'">
+					<i class="pi" [ngClass]="project.is_private ? 'pi-lock' : 'pi-unlock'" class="mr-1"></i>
+					{{ project.is_private ? 'Privado' : 'Público' }}
+				</span>
+			</div>
+			<div>
+				<span class="block text-lg font-bold text-blue-800 mb-1">Creado el:</span>
+				<span class="block">{{ project.created_at | date:'medium' }}</span>
+			</div>
+		</div>
+		<!-- Sección de diagramas -->
+		<div *ngIf="project" class="mt-8">
+					<div class="flex items-center gap-4 mb-4">
+						<h3 class="text-xl font-bold text-blue-800 flex items-center gap-2">
+							<i class="pi pi-sitemap text-yellow-400 text-xl"></i>
+							Diagramas
+						</h3>
+						<button (click)="goToDiagramList()" class="pButton p-button-rounded bg-yellow-300 text-blue-800 hover:bg-yellow-400 font-semibold px-3 py-1 flex items-center gap-2 transition shadow">
+							<i class="pi pi-list text-blue-800"></i>
+							Ver todos
+						</button>
+					</div>
+			<div *ngIf="diagrams.length === 0" class="text-gray-500 font-semibold">No hay diagramas en este proyecto.</div>
+			<table *ngIf="diagrams.length > 0" class="w-full border border-blue-200 rounded-lg overflow-hidden">
+				<thead class="bg-blue-100">
+					<tr>
+						<th class="px-4 py-2 text-left text-blue-800 font-bold">Nombre</th>
+						<th class="px-4 py-2 text-left text-blue-800 font-bold">Creado el</th>
+						<th class="px-4 py-2"></th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr *ngFor="let diagram of diagrams" class="border-t border-blue-100">
+						<td class="px-4 py-2">{{ diagram.name }}</td>
+						<td class="px-4 py-2">{{ diagram.created_at | date:'medium' }}</td>
+						<td class="px-4 py-2">
+							<button class="pButton p-button-rounded bg-yellow-300 text-blue-800 hover:bg-yellow-400 font-semibold px-3 py-1 flex items-center gap-2 transition shadow">
+								<i class="pi pi-eye text-blue-800"></i>
+								Ver detalle
+							</button>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+</div>

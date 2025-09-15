@@ -1,0 +1,43 @@
+
+<div class="w-full min-h-[60vh] flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 py-8">
+	<div class="flex items-center gap-4 mb-8">
+		<h2 class="text-3xl font-bold text-blue-800 flex items-center gap-2">
+			<i class="pi pi-sitemap text-yellow-400 text-3xl"></i>
+			Diagramas
+		</h2>
+		<button (click)="goToCreate()" class="pButton p-button-rounded bg-yellow-300 text-blue-800 hover:bg-yellow-400 font-semibold px-4 py-2 flex items-center gap-2 transition shadow">
+			<i class="pi pi-plus text-blue-800"></i>
+			Crear diagrama
+		</button>
+	</div>
+
+	<div *ngIf="loading" class="flex items-center justify-center h-32">
+		<i class="pi pi-spin pi-spinner text-blue-600 text-4xl"></i>
+		<span class="ml-3 text-blue-600 font-semibold">Cargando diagramas...</span>
+	</div>
+
+	<div *ngIf="error" class="text-red-500 font-semibold mb-4">{{ error }}</div>
+
+	<div *ngIf="!loading && diagrams.length === 0" class="text-gray-500 font-semibold">No hay diagramas registrados.</div>
+
+	<div *ngIf="diagrams.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-6xl">
+		<div *ngFor="let diagram of diagrams" class="bg-white rounded-xl shadow-lg border border-blue-200 p-6 flex flex-col justify-between hover:shadow-2xl transition group">
+			<div>
+				<div class="flex items-center gap-2 mb-2">
+					<i class="pi pi-sitemap text-blue-600 text-2xl"></i>
+					<span class="text-xl font-bold text-blue-800 group-hover:text-yellow-500 transition">{{ diagram.name }}</span>
+				</div>
+				<div class="text-sm text-gray-500 mb-2">
+					<span class="font-mono">{{ diagram.id }}</span>
+				</div>
+				<div class="text-sm text-gray-500 mb-2">
+					<span class="block">Creado el: {{ diagram.created_at | date:'medium' }}</span>
+				</div>
+			</div>
+			<button (click)="goToDetail(diagram)" class="mt-4 pButton p-button-rounded bg-yellow-300 text-blue-800 hover:bg-yellow-400 font-semibold px-4 py-2 flex items-center gap-2 transition">
+				<i class="pi pi-eye text-blue-800"></i>
+				Ver detalle
+			</button>
+		</div>
+	</div>
+</div>

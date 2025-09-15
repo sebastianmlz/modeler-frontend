@@ -1,0 +1,32 @@
+<header class="w-full bg-gradient-to-r from-blue-700 via-blue-600 to-blue-500 shadow flex items-center justify-between px-8 py-3">
+	<!-- Título -->
+	<div class="flex items-center cursor-pointer" (click)="goDashboard()">
+		<i class="pi pi-sitemap text-white text-2xl mr-2"></i>
+		<span class="text-2xl font-extrabold text-white tracking-wide">Modeler</span>
+	</div>
+
+	<!-- Links centro -->
+		<nav class="flex gap-8">
+			<a routerLink="/organization" class="flex items-center gap-2 text-white hover:text-yellow-300 font-semibold transition">
+				<i class="pi pi-building text-lg"></i>
+				Organizaciones
+			</a>
+			<a routerLink="/settings" class="flex items-center gap-2 text-white hover:text-yellow-300 font-semibold transition">
+				<i class="pi pi-cog text-lg"></i>
+				Ajustes de usuario
+			</a>
+		</nav>
+
+	<!-- Usuario y menú -->
+		<div class="flex items-center gap-3">
+			<span class="font-semibold text-white flex items-center gap-2">
+				<i class="pi pi-user text-yellow-300 text-lg"></i>
+				{{ user?.display_name || user?.username }}
+			</span>
+			<p-menu [model]="menuItems" popup #menu></p-menu>
+			<button pButton type="button" class="p-button-rounded p-button-sm bg-yellow-300 text-blue-800 hover:bg-yellow-400 flex items-center gap-2 px-3 py-2 transition" (click)="menu.toggle($event)">
+				<i class="pi pi-ellipsis-v text-blue-800 text-lg"></i>
+				<span class="sr-only">Menú usuario</span>
+			</button>
+		</div>
+</header>
