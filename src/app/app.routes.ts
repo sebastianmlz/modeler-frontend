@@ -35,12 +35,13 @@ export const routes: Routes = [
 			},
 			{
 				path: 'diagram',
-				children: [
-					{ path: 'list', loadComponent: () => import('./diagram/diagram-list/diagram-list.component').then(m => m.DiagramListComponent) },
-					{ path: 'create', loadComponent: () => import('./diagram/diagram-create/diagram-create.component').then(m => m.DiagramCreateComponent) },
-					{ path: ':id', loadComponent: () => import('./diagram/diagram-detail/diagram-detail.component').then(m => m.DiagramDetailComponent) },
-					{ path: 'show/:id', loadComponent: () => import('./diagram/diagram-show/diagram-show.component').then(m => m.DiagramShowComponent) },
-				]
+				   children: [
+					   { path: 'list', loadComponent: () => import('./diagram/diagram-list/diagram-list.component').then(m => m.DiagramListComponent) },
+					   { path: 'create', loadComponent: () => import('./diagram/diagram-create/diagram-create.component').then(m => m.DiagramCreateComponent) },
+					   { path: ':id', loadComponent: () => import('./diagram/diagram-detail/diagram-detail.component').then(m => m.DiagramDetailComponent) },
+					   { path: 'show/:id', loadComponent: () => import('./diagram/diagram-show/diagram-show.component').then(m => m.DiagramShowComponent) },
+					   { path: 'show/:id/:versionId', loadComponent: () => import('./diagram/diagram-show/diagram-show.component').then(m => m.DiagramShowComponent) },
+				   ]
 			}
 		]
 	}

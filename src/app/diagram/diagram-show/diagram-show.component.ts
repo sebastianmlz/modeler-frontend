@@ -1,10 +1,60 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+
+
+// Relación UML para guardar en estructura
+export interface UMLRelation {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  type: 'Herencia' | 'Asociación' | 'Agregación' | 'Composición' | 'Dependencia' | 'AsociaciónNtoN';
+  sourceMultiplicity?: string; // Ej: '1', '0..1', '1..*', '*'
+  targetMultiplicity?: string; // Ej: '1', '0..1', '1..*', '*'
+  name?: string; // Nombre de la relación (opcional)
+  associationClassId?: string; // Solo para NtoN: id de la clase intermedia generada
+}
+
+// NOTA: Para 'AsociaciónNtoN', al crear la relación se debe crear automáticamente una clase intermedia
+// con dos atributos PK (referencias a las PK de las clases padres) y conectarla visualmente.
+
+
+
+// Array real de clases UML
+
+
+
+
+// --- MODELOS UML PARA SNAPSHOT Y FRONTEND ---
+// --- MODELOS UML PARA SNAPSHOT Y FRONTEND ---
+// (deja solo interfaces y constantes fuera de la clase)
+export interface UMLAttribute {
+  id: string;
+  name: string;
+  typeName: string;
+  isRequired: boolean;
+  isPrimaryKey: boolean;
+  position: number;
+}
+
+export interface UMLClass {
+  id: string;
+  name: string;
+  visibility: 'PUBLIC' | 'PRIVATE' | 'PROTECTED';
+  position: { x: number; y: number };
+  size: { w: number; h: number };
+  attributes: UMLAttribute[];
+}
+
+export const ATTRIBUTE_TYPES = [
+  'string', 'int', 'long', 'boolean', 'float', 'double', 'date', 'datetime', 'BigDecimal'
+];
+
+
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { DiagramVersionService } from './diagram-version.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ShowSidebarComponent } from './show-sidebar/show-sidebar.component';
-import * as joint from '@joint/core';
+import { DiagramModule, NodeModel, ConnectorModel, DiagramComponent } from '@syncfusion/ej2-angular-diagrams';
 
 
 // ...existing code...
@@ -12,583 +62,727 @@ import * as joint from '@joint/core';
 @Component({
   selector: 'app-diagram-show',
   standalone: true,
-  imports: [CommonModule, FormsModule, ShowSidebarComponent],
+  imports: [CommonModule, FormsModule, ShowSidebarComponent, DiagramModule],
   templateUrl: './diagram-show.component.html',
   styleUrl: './diagram-show.component.css'
 })
 export class DiagramShowComponent implements OnInit {
+  // Maneja la selección de nodos o relaciones en el canvas
+  onSelectionChange(event: any) {
+    if (!event || !event.newValue || event.newValue.length === 0) {
+      this.selectedUMLClass = null;
+      this.selectedUMLRelationId = null;
+      return;
+    }
+    const selected = event.newValue[0];
+    // Si hay tipo de relación seleccionado, usar lógica de selección de nodos para crear relación
+    if (this.selectedRelationType && selected && (selected.shape || selected.annotations)) {
+      const nodeId = selected.id;
+      if (!this.selectedSourceNodeId) {
+        this.selectedSourceNodeId = nodeId;
+        return;
+      }
+      if (!this.selectedTargetNodeId && nodeId !== this.selectedSourceNodeId) {
+        this.selectedTargetNodeId = nodeId;
+        this.createRelationConnector();
+      }
+      // No abrir panel de edición en modo relación
+      return;
+    }
+    // Si no hay tipo de relación seleccionado, comportamiento normal
+    if (selected && (selected.shape || selected.annotations)) {
+      const umlClass = this.getUMLClassByNodeId(selected.id);
+      if (umlClass) {
+        this.openClassPanel(umlClass);
+        this.selectedUMLRelationId = null;
+        return;
+      }
+    }
+    // Si es un conector (relación), abrir panel de relación
+    if (selected && selected.id) {
+      // Buscar relación por id
+      let rel = this.umlRelations.find(r => r.id === selected.id);
+      // Si no se encuentra por id, buscar por source/target
+      if (!rel && selected.sourceID && selected.targetID) {
+        rel = this.umlRelations.find(r => r.sourceId === selected.sourceID && r.targetId === selected.targetID);
+      }
+      if (rel) {
+        this.selectedUMLClass = null;
+        this.selectedUMLRelationId = rel.id;
+        this.openRelationPanel(rel.id);
+        return;
+      }
+    }
+    // Si no es clase ni relación conocida
+    this.selectedUMLClass = null;
+    this.selectedUMLRelationId = null;
+  }
+
+  // Tipos de datos básicos para atributos
+  attributeTypes = [
+    'string', 'int', 'long', 'boolean', 'float', 'double', 'date', 'datetime', 'BigDecimal'
+  ];
+
+  // Clase seleccionada para edición
+  selectedUMLClass: UMLClass | null = null;
+
+  // Actualiza la clase seleccionada en el canvas solo cuando se presiona el botón
+  updateSelectedClassOnCanvas() {
+    console.log('Botón Actualizar clase presionado');
+    if (this.selectedUMLClass) {
+      console.log('Clase seleccionada:', this.selectedUMLClass);
+      this.updateNodeContent(this.selectedUMLClass);
+    } else {
+      console.log('No hay clase seleccionada');
+    }
+  }
+  // Array real de clases UML
+  umlClasses: UMLClass[] = [];
+
+  umlRelations: UMLRelation[] = [];
+
+  // Devuelve true si ya hay un PK en la clase
+  get hasPrimaryKey(): boolean {
+    return this.selectedUMLClass?.attributes.some(a => a.isPrimaryKey) ?? false;
+  }
+
+  // Abrir panel de edición al seleccionar clase (ejemplo: desde evento de selección)
+  openClassPanel(umlClass: UMLClass) {
+    this.selectedUMLClass = umlClass;
+  }
+
+  closeClassPanel() {
+    this.selectedUMLClass = null;
+  }
+
+  addAttribute() {
+    if (!this.selectedUMLClass) return;
+    const nextPos = this.selectedUMLClass.attributes.length;
+    this.selectedUMLClass.attributes.push({
+      id: 'A' + Date.now() + '_' + Math.floor(Math.random()*1000),
+      name: '',
+      typeName: 'string',
+      isRequired: false,
+      isPrimaryKey: false,
+      position: nextPos
+    });
+  }
+
+  removeAttribute(idx: number) {
+    if (!this.selectedUMLClass) return;
+    this.selectedUMLClass.attributes.splice(idx, 1);
+  }
+
+  setPrimaryKey(idx: number) {
+    if (!this.selectedUMLClass) return;
+    this.selectedUMLClass.attributes.forEach((a, i) => a.isPrimaryKey = i === idx);
+  }
+
+  attributeNameExists(name: string, idx: number): boolean {
+    if (!this.selectedUMLClass) return false;
+    return this.selectedUMLClass.attributes.some((a, i) => a.name === name && i !== idx);
+  }
+  @ViewChild('umlDiagram', { static: false }) diagramComponent!: DiagramComponent;
   diagramId: string = '';
   versionId: string = '';
   savingVersion: boolean = false;
   saveError: string = '';
+
+  // Sincroniza los arrays de datos con los visuales antes de guardar
+  syncDataFromVisuals() {
+    // Sincronizar clases
+    this.umlClasses = this.nodes.map(node => {
+      // Buscar la clase real por id
+      let found = this.umlClasses.find(cls => cls.id === node.id);
+      if (found) return found;
+      // Si no existe, crear una clase mínima
+      return {
+        id: node.id || '',
+        name: node.annotations?.[0]?.content || 'Clase',
+        visibility: 'PUBLIC',
+        position: { x: node.offsetX || 0, y: node.offsetY || 0 },
+        size: { w: node.width || 150, h: node.height || 80 },
+        attributes: []
+      };
+    });
+    // Sincronizar relaciones (filtrar conectores solo visuales)
+    this.umlRelations = this.connectors
+      .filter(conn => !conn.id?.startsWith('assoc_line_') && !conn.id?.startsWith('visual_')) // Excluir conectores puramente visuales
+      .map(conn => {
+        let found = this.umlRelations.find(rel => rel.id === conn.id);
+        if (found) return found;
+        // Si no existe, crear una relación mínima
+        return {
+          id: conn.id || '',
+          sourceId: conn.sourceID || '',
+          targetId: conn.targetID || '',
+          type: 'Asociación'
+        };
+      });
+  }
+
+  saveDiagramVersion() {
+    this.savingVersion = true;
+    this.saveError = '';
+    // Sincronizar datos antes de guardar
+    this.syncDataFromVisuals();
+    // Armar snapshot
+    const snapshot = {
+      classes: this.umlClasses,
+      relations: this.umlRelations,
+      metadata: {}
+    };
+    // Puedes pedir el mensaje al usuario o dejar uno por defecto
+    const message = 'Versión guardada desde el editor';
+    // El id del diagrama puede venir de la ruta o variable
+    const diagramId = this.diagramId || '';
+    this.versionService.createVersion(diagramId, snapshot, message).subscribe({
+      next: () => {
+        this.savingVersion = false;
+        alert('¡Versión guardada exitosamente!');
+      },
+      error: (err) => {
+        this.savingVersion = false;
+        this.saveError = 'Error al guardar versión';
+        alert('Error al guardar versión');
+      }
+    });
+  }
+
   loadingVersion: boolean = false;
   loadError: string = '';
+  selectedRelationType: string = '';
+
+
+  // Arrays de nodos y conectores, se poblarán solo desde snapshot
+  public nodes: NodeModel[] = [];
+  public connectors: ConnectorModel[] = [];
+
+  // Configuración de selección para Syncfusion Diagram
+  public selectedItems = {
+    constraints: 1 // Selector simple
+  };
+
+
+  selectedSourceNodeId: string | null = null;
+  selectedTargetNodeId: string | null = null;
+  selectedUMLRelationId: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
     private versionService: DiagramVersionService
   ) {}
-  // Devuelve true si ya existe un atributo PK en la lista
-  hasPrimaryKey(): boolean {
-    return this.editClassAttrs.some(attr => attr.isPrimaryKey);
-  }
-
-  // Devuelve true si el atributo actual debe tener el checkbox PK deshabilitado
-  isPrimaryKeyDisabled(index: number): boolean {
-    return this.editClassAttrs.some((attr, i) => attr.isPrimaryKey && i !== index);
-  }
-  @ViewChild('diagramCanvas', { static: true }) diagramCanvas!: ElementRef<HTMLDivElement>;
-  graph!: joint.dia.Graph;
-  paper!: joint.dia.Paper;
-  relationMode: { active: boolean; type?: string; name?: string } = { active: false };
-  selectedClasses: joint.dia.Element[] = [];
-
-
-
-    logSnapshot(): void {
-      if (!this.graph) return;
-      const classes: Record<string, any> = {};
-      const relations: Record<string, any> = {};
-      this.graph.getElements().forEach((el: joint.dia.Element, idx: number) => {
-        if (el instanceof joint.shapes.standard.Rectangle) {
-          const id = el.id || `C${idx+1}`;
-          const name = el.attr('label/text') || '';
-          const position = el.position();
-          const size = el.size();
-          // Leer atributos completos desde attrs/json
-          let attributes: any[] = [];
-          const attrsJson = el.attr('attrs/json');
-          if (attrsJson) {
-            try {
-              attributes = JSON.parse(attrsJson).map((attr: any, i: number) => ({
-                id: `A${id}-${i+1}`,
-                ...attr
-              }));
-            } catch {
-              attributes = [];
-            }
-          }
-          classes[id] = {
-            id,
-            name,
-            visibility: 'PUBLIC',
-            position: { x: position.x, y: position.y },
-            size: { w: size.width, h: size.height },
-            attributes
-          };
-        }
-      });
-      this.graph.getLinks().forEach((link: joint.dia.Link, idx: number) => {
-        const id = link.id || `R${idx+1}`;
-        const source = (link.get('source') as any).id;
-        const target = (link.get('target') as any).id;
-        // Leer tipo de relación desde el atributo 'relationType' si existe, si no usar heurística
-        let type = link.attr('relationType');
-        if (!type) {
-          // Heurística visual (puedes mejorar esto para soportar más tipos)
-          const stroke = link.attr('line/stroke');
-          if (stroke === '#f59e42') type = 'INHERITANCE';
-          else if (stroke === '#14b8a6') type = 'ASSOCIATION';
-          else type = 'ASSOCIATION';
-        }
-        relations[id] = {
-          id,
-          source,
-          target,
-          type,
-          label: link.attr('label/text') || ''
-        };
-      });
-      const snapshot = {
-        classes,
-        relations,
-        enums: {},
-        metadata: {}
-      };
-      console.log('Snapshot generado:', snapshot);
-    }
-// ...existing code...
-  onAddRelation(rel: { name: string; type: string }) {
-    // Activar modo de selección de clases para crear relación
-    this.relationMode = { active: true, type: rel.type, name: rel.name };
-    this.selectedClasses = [];
-    // Opcional: mostrar mensaje visual de selección
-    alert(`Selecciona dos clases en el canvas para crear la relación: ${rel.name}`);
-  }
-
-  createRelation(source: joint.dia.Element, target: joint.dia.Element, rel: { type?: string; name?: string }) {
-    // Crear una relación UML básica (enlace) entre dos clases
-    const link = new joint.shapes.standard.Link();
-    link.source({ id: source.id });
-    link.target({ id: target.id });
-    link.attr({
-      line: {
-        stroke: rel.type === 'inheritance' ? '#f59e42' : '#14b8a6',
-        strokeWidth: 3,
-        targetMarker: {
-          'type': rel.type === 'inheritance' ? 'path' : 'classic',
-          'd': rel.type === 'inheritance' ? 'M 10 -5 0 0 10 5 Z' : 'M 10 -5 0 0 10 5 Z',
-          'fill': rel.type === 'inheritance' ? '#f59e42' : '#14b8a6'
-        }
-      },
-      label: {
-        text: rel.name || '',
-        fill: '#374151',
-        fontSize: 14,
-        fontWeight: 'bold',
-        textAnchor: 'middle',
-        y: -10
-      }
-    });
-    this.graph.addCell(link);
-  }
 
   ngOnInit(): void {
-    this.graph = new joint.dia.Graph();
-    // Obtener el id del diagrama y version desde la ruta y query params
-    const paramId = this.route.snapshot.paramMap.get('id');
-    const paramVersionId = this.route.snapshot.paramMap.get('versionId');
-    const queryDiagram = this.route.snapshot.queryParamMap.get('diagram');
-    const queryVersionId = this.route.snapshot.queryParamMap.get('versionId');
-    this.diagramId = paramId || queryDiagram || '';
-    this.versionId = paramVersionId || queryVersionId || '';
-    console.log('ngOnInit diagramId:', this.diagramId);
-    console.log('ngOnInit versionId:', this.versionId);
+    console.log('[DEBUG] ngOnInit ejecutado');
+  this.diagramId = this.route.snapshot.paramMap.get('id') || '';
+  // Captura versionId de la ruta o de los query params
+  this.versionId = this.route.snapshot.paramMap.get('versionId') || this.route.snapshot.queryParamMap.get('versionId') || '';
+  console.log('[DEBUG] versionId obtenido:', this.versionId);
     if (this.versionId) {
-      this.loadVersion(this.versionId);
-    }
-  }
-
-  loadVersion(versionId: string): void {
-    this.loadingVersion = true;
-    this.loadError = '';
-    this.versionService.getVersion(versionId).subscribe({
-      next: (res) => {
-        console.log('Respuesta GET versión:', res);
-        this.loadingVersion = false;
-        if (res.snapshot) {
-          this.renderSnapshot(res.snapshot);
-        } else {
-          this.loadError = 'La versión no contiene snapshot.';
-        }
-      },
-      error: () => {
-        this.loadingVersion = false;
-        this.loadError = 'Error al cargar la versión.';
-      }
-    });
-  }
-
-  renderSnapshot(snapshot: any): void {
-    if (!snapshot) {
-      this.loadError = 'No se recibió snapshot para restaurar.';
-      return;
-    }
-    this.graph.clear();
-    // Renderizar clases (asegura array)
-    const classesArr = Array.isArray(snapshot.classes) ? snapshot.classes : Object.values(snapshot.classes || {});
-  // Mapeo de IDs: snapshot → JointJS
-  const idMap: Record<any, string> = {};
-    classesArr.forEach((cls: any) => {
-      const baseHeight = 32;
-      const attrHeight = 24 * Math.max(1, (cls.attributes?.length || 1));
-      const totalHeight = baseHeight + attrHeight;
-      const umlClass = new joint.shapes.standard.Rectangle({
-        markup: [
-          { tagName: 'rect', selector: 'body' },
-          { tagName: 'rect', selector: 'nameBg' },
-          { tagName: 'rect', selector: 'attrsBg' },
-          { tagName: 'text', selector: 'label' },
-          { tagName: 'text', selector: 'attrs' },
-        ]
-      });
-      umlClass.position(cls.position.x, cls.position.y);
-      umlClass.resize(cls.size.w, cls.size.h);
-      umlClass.attr({
-        body: {
-          fill: '#6366f1',
-          stroke: '#312e81',
-          strokeWidth: 2,
-          rx: 8,
-          ry: 8,
-          width: cls.size.w,
-          height: cls.size.h,
-        },
-        nameBg: {
-          x: 0,
-          y: 0,
-          width: cls.size.w,
-          height: baseHeight,
-          fill: '#6366f1',
-          stroke: 'none',
-        },
-        attrsBg: {
-          x: 0,
-          y: baseHeight,
-          width: cls.size.w,
-          height: attrHeight,
-          fill: '#e0e7ff',
-          stroke: 'none',
-        },
-        label: {
-          text: cls.name,
-          x: cls.size.w / 2,
-          y: baseHeight / 2 + 4,
-          textAnchor: 'middle',
-          fontSize: 18,
-          fontWeight: 'bold',
-          fill: '#fff',
-        },
-        attrs: {
-          text: (cls.attributes || []).map((a: any) => a.name).join('\n'),
-          x: cls.size.w / 2,
-          y: baseHeight + 18,
-          textAnchor: 'middle',
-          fontSize: 14,
-          fontWeight: 'normal',
-          fill: '#312e81',
-        }
-      });
-      umlClass.attr('attrs/json', JSON.stringify(cls.attributes || []));
-      umlClass.attr('attrs/text', (cls.attributes || []).map((a: any) => a.name).join('\n'));
-      umlClass.attr('label/text', cls.name);
-      this.graph.addCell(umlClass);
-  idMap[cls.id as string] = String(umlClass.id);
-    });
-    // Renderizar relaciones (asegura array)
-    const relationsArr = Array.isArray(snapshot.relations) ? snapshot.relations : Object.values(snapshot.relations || {});
-    relationsArr.forEach((rel: any) => {
-      // Usar el idMap para obtener los IDs reales
-      const sourceId = idMap[rel.source];
-      const targetId = idMap[rel.target];
-      const sourceElement = this.graph.getCell(sourceId);
-      const targetElement = this.graph.getCell(targetId);
-      if (sourceElement && targetElement) {
-        const link = new joint.shapes.standard.Link();
-        link.source({ id: sourceId });
-        link.target({ id: targetId });
-        link.attr({
-          line: {
-            stroke: rel.type === 'INHERITANCE' ? '#f59e42' : '#14b8a6',
-            strokeWidth: 3,
-            targetMarker: {
-              'type': rel.type === 'INHERITANCE' ? 'path' : 'classic',
-              'd': rel.type === 'INHERITANCE' ? 'M 10 -5 0 0 10 5 Z' : 'M 10 -5 0 0 10 5 Z',
-              'fill': rel.type === 'INHERITANCE' ? '#f59e42' : '#14b8a6'
-            }
-          },
-          label: {
-            text: rel.label || '',
-            fill: '#374151',
-            fontSize: 14,
-            fontWeight: 'bold',
-            textAnchor: 'middle',
-            y: -10
+      this.loadingVersion = true;
+      console.log('[DEBUG] Llamando a getVersion con:', this.versionId);
+      this.versionService.getVersion(this.versionId).subscribe({
+        next: (data) => {
+          this.loadingVersion = false;
+          console.log('[DEBUG] RESPUESTA COMPLETA DEL BACKEND:', data);
+          if (data && data.snapshot) {
+            console.log('[DEBUG] PASANDO SNAPSHOT A loadSnapshotToCanvas:', data.snapshot);
+            this.loadSnapshotToCanvas(data.snapshot);
+          } else {
+            console.warn('[DEBUG] No se encontró snapshot en la respuesta');
           }
-        });
-        link.id = rel.id;
-        this.graph.addCell(link);
-      } else {
-        console.warn('No se encontró elemento fuente o destino para la relación:', rel);
-      }
-    });
-    this.loadError = '';
+        },
+        error: (err) => {
+          this.loadingVersion = false;
+          console.error('[DEBUG] ERROR en getVersion:', err);
+        }
+        // error: (err) => {
+        //   this.loadingVersion = false;
+        //   this.loadError = 'No se pudo cargar la versión.';
+        // }
+      });
+    }
   }
 
-  saveVersion(): void {
-    if (!this.diagramId) {
-      this.saveError = 'No se encontró el ID del diagrama.';
-      return;
-    }
-    if (!this.graph) {
-      this.saveError = 'No hay diagrama para guardar.';
-      return;
-    }
-    this.savingVersion = true;
-    this.saveError = '';
-    // Generar snapshot
-    const classes: Record<string, any> = {};
-    const relations: Record<string, any> = {};
-    this.graph.getElements().forEach((el: joint.dia.Element, idx: number) => {
-      if (el instanceof joint.shapes.standard.Rectangle) {
-        const id = el.id || `C${idx+1}`;
-        const name = el.attr('label/text') || '';
-        const position = el.position();
-        const size = el.size();
-        let attributes: any[] = [];
-        const attrsJson = el.attr('attrs/json');
-        if (attrsJson) {
-          try {
-            attributes = JSON.parse(attrsJson).map((attr: any, i: number) => ({
-              id: `A${id}-${i+1}`,
-              ...attr
-            }));
-          } catch {
-            attributes = [];
-          }
+  // Cargar snapshot en el canvas y en las estructuras
+  loadSnapshotToCanvas(snapshot: any) {
+    console.log('[DEBUG] loadSnapshotToCanvas recibió:', snapshot);
+    // Permitir snapshot anidado (caso backend)
+    const snap = snapshot && snapshot.snapshot ? snapshot.snapshot : snapshot;
+    console.log('[DEBUG] Snapshot final a usar:', snap);
+    // Limpiar arrays
+    this.umlClasses = [];
+    this.umlRelations = [];
+    this.nodes = [];
+    this.connectors = [];
+    // Poblar clases
+    console.log('[DEBUG] Classes encontradas:', snap.classes);
+    if (snap.classes) {
+      this.umlClasses = snap.classes;
+      this.nodes = this.umlClasses.map(cls => {
+        // Formatear contenido UML: nombre, línea, atributos
+        let content = cls.name;
+        if (cls.attributes && cls.attributes.length > 0) {
+          content += '\n' + '─'.repeat(Math.max(cls.name.length, 10)) + '\n';
+          content += cls.attributes.map(attr => {
+            let line = attr.name + ': ' + attr.typeName;
+            if (attr.isPrimaryKey) line += ' [PK]';
+            return line;
+          }).join('\n');
         }
-        classes[id] = {
-          id,
-          name,
-          visibility: 'PUBLIC',
-          position: { x: position.x, y: position.y },
-          size: { w: size.width, h: size.height },
-          attributes
+        // Calcular tamaño según contenido
+        const lines = content.split('\n');
+        const maxLineLength = Math.max(...lines.map(line => line.length));
+        const newWidth = Math.max(150, maxLineLength * 8 + 20);
+        const newHeight = Math.max(80, lines.length * 20 + 20);
+        return {
+          id: cls.id,
+          offsetX: cls.position?.x || 200,
+          offsetY: cls.position?.y || 150,
+          width: newWidth,
+          height: newHeight,
+          annotations: [{ content }],
+          style: { fill: '#fff', strokeColor: '#000', strokeWidth: 2 }
         };
-      }
-    });
-    this.graph.getLinks().forEach((link: joint.dia.Link, idx: number) => {
-      const id = link.id || `R${idx+1}`;
-      const source = (link.get('source') as any).id;
-      const target = (link.get('target') as any).id;
-      let type = link.attr('relationType');
-      if (!type) {
-        const stroke = link.attr('line/stroke');
-        if (stroke === '#f59e42') type = 'INHERITANCE';
-        else if (stroke === '#14b8a6') type = 'ASSOCIATION';
-        else type = 'ASSOCIATION';
-      }
-      relations[id] = {
-        id,
-        source,
-        target,
-        type,
-        label: link.attr('label/text') || ''
-      };
-    });
-    const snapshot = {
-      classes: Object.values(classes),
-      relations: Object.values(relations),
-      enums: {},
-      metadata: {}
-    };
-    // Llamar al servicio para guardar la versión
-    this.versionService.createVersion(this.diagramId, snapshot, 'Versión guardada desde el editor').subscribe({
-      next: (res) => {
-        this.savingVersion = false;
-        alert('Versión guardada correctamente.');
-      },
-      error: (err) => {
-        this.savingVersion = false;
-        this.saveError = 'Error al guardar la versión.';
-      }
-    });
-  }
-
-  ngAfterViewInit(): void {
-    this.paper = new joint.dia.Paper({
-      el: this.diagramCanvas.nativeElement,
-      model: this.graph,
-      width: this.diagramCanvas.nativeElement.offsetWidth,
-      height: this.diagramCanvas.nativeElement.offsetHeight,
-      gridSize: 10,
-      drawGrid: true,
-      background: { color: '#f3f4f6' }
-    });
-
-    // Handler para relaciones
-    this.paper.on('element:pointerdown', (elementView: any) => {
-      if (!this.relationMode.active) return;
-      const element = elementView.model as joint.dia.Element;
-      if (element.isElement()) {
-        // Evitar seleccionar el mismo dos veces
-        if (this.selectedClasses.length === 0 || this.selectedClasses[0].id !== element.id) {
-          this.selectedClasses.push(element);
-        }
-        if (this.selectedClasses.length === 2) {
-          this.createRelation(this.selectedClasses[0], this.selectedClasses[1], this.relationMode);
-          this.relationMode = { active: false };
-          this.selectedClasses = [];
-        }
-      }
-    });
-
-    // Handler para edición de clase UML
-    this.paper.on('element:pointerdblclick', (elementView: any) => {
-      const element = elementView.model as joint.dia.Element;
-      if (element.isElement()) {
-        this.openEditClassModal(element);
-      }
-    });
-  }
-
-  // Modal de edición (lógica inicial)
-  editingClass: joint.dia.Element | null = null;
-  showEditModal = false;
-  editClassName = '';
-  editClassAttrs: Array<{ name: string; typeName: string; isPrimaryKey: boolean; isRequired: boolean; position: number }> = [];
-  newAttr: { name: string; typeName: string; isPrimaryKey: boolean; isRequired: boolean } = { name: '', typeName: 'String', isPrimaryKey: false, isRequired: false };
-
-  openEditClassModal(element: joint.dia.Element) {
-    this.editingClass = element;
-    this.editClassName = element.attr('label/text') || '';
-    // Leer atributos guardados en el elemento (como JSON, si existe)
-    const attrsJson = element.attr('attrs/json') || '';
-    if (attrsJson) {
-      try {
-        this.editClassAttrs = JSON.parse(attrsJson);
-      } catch {
-        this.editClassAttrs = [];
-      }
-    } else {
-      // Si no hay JSON, intentar migrar desde texto plano
-      const attrsText = element.attr('attrs/text') || '';
-  this.editClassAttrs = attrsText ? attrsText.split('\n').map((name: string, i: number) => ({ name, typeName: 'String', isPrimaryKey: i === 0, isRequired: false, position: i })) : [];
+      });
+      console.log('[DEBUG] NODOS GENERADOS:', this.nodes);
     }
-    this.newAttr = { name: '', typeName: 'String', isPrimaryKey: false, isRequired: false };
-    this.showEditModal = true;
-  }
-
-  saveEditClass() {
-    if (this.editingClass) {
-      this.editingClass.attr('label/text', this.editClassName);
-      // Guardar atributos como JSON y como texto plano para compatibilidad visual
-      this.editClassAttrs.forEach((attr, i) => attr.position = i);
-      this.editingClass.attr('attrs/json', JSON.stringify(this.editClassAttrs));
-      const attrsText = this.editClassAttrs.map(attr => attr.name).join('\n');
-      this.editingClass.attr('attrs/text', attrsText);
-      // Calcular altura dinámica
-      const baseHeight = 32; // altura del nombre
-      const attrHeight = 24 * Math.max(1, this.editClassAttrs.length); // 24px por atributo
-      const totalHeight = baseHeight + attrHeight;
-      this.editingClass.resize(160, totalHeight);
-      // Actualizar markup personalizado
-      this.editingClass.markup = [
-        { tagName: 'rect', selector: 'body' },
-        { tagName: 'rect', selector: 'nameBg' },
-        { tagName: 'rect', selector: 'attrsBg' },
-        { tagName: 'text', selector: 'label' },
-        { tagName: 'text', selector: 'attrs' },
-      ];
-      this.editingClass.attr({
-        body: {
-          fill: '#6366f1',
-          stroke: '#312e81',
-          strokeWidth: 2,
-          rx: 8,
-          ry: 8,
-          width: 160,
-          height: totalHeight,
-        },
-        nameBg: {
-          x: 0,
-          y: 0,
-          width: 160,
-          height: baseHeight,
-          fill: '#6366f1',
-          stroke: 'none',
-        },
-        attrsBg: {
-          x: 0,
-          y: baseHeight,
-          width: 160,
-          height: attrHeight,
-          fill: '#e0e7ff',
-          stroke: 'none',
-        },
-        label: {
-          text: this.editClassName,
-          x: 80,
-          y: baseHeight / 2 + 4,
-          textAnchor: 'middle',
-          fontSize: 18,
-          fontWeight: 'bold',
-          fill: '#fff',
-        },
-        attrs: {
-          text: attrsText,
-          x: 80,
-          y: baseHeight + 18,
-          textAnchor: 'middle',
-          fontSize: 14,
-          fontWeight: 'normal',
-          fill: '#312e81',
+    // Poblar relaciones
+    console.log('[DEBUG] Relations encontradas:', snap.relations);
+    if (snap.relations) {
+      this.umlRelations = snap.relations;
+      this.connectors = this.umlRelations.map(rel => {
+          let connector: ConnectorModel = {
+            id: rel.id,
+            sourceID: rel.sourceId,
+            targetID: rel.targetId,
+            type: 'Orthogonal',
+            style: { strokeColor: '#222', strokeWidth: 2 },
+            targetDecorator: { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } }
+          };
+          switch (rel.type) {
+            case 'Herencia':
+              connector.targetDecorator = { shape: 'Arrow', style: { fill: '#fff', strokeColor: '#222', strokeWidth: 2 } };
+              connector.style = { strokeColor: '#222', strokeWidth: 2 };
+              break;
+            case 'Asociación':
+              connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
+              connector.style = { strokeColor: '#222', strokeWidth: 2 };
+              break;
+            case 'Agregación':
+              connector.targetDecorator = { shape: 'Diamond', style: { fill: '#fff', strokeColor: '#222', strokeWidth: 2 } };
+              connector.style = { strokeColor: '#222', strokeWidth: 2 };
+              break;
+            case 'Composición':
+              connector.targetDecorator = { shape: 'Diamond', style: { fill: '#222', strokeColor: '#222', strokeWidth: 2 } };
+              connector.style = { strokeColor: '#222', strokeWidth: 2 };
+              break;
+            case 'Dependencia':
+              connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
+              connector.style = { strokeColor: '#222', strokeWidth: 2, strokeDashArray: '4 2' };
+              break;
+          }
+          return connector;
+        });
+      
+      // Agregar conectores visuales para relaciones N a N con clase de asociación
+      this.umlRelations.forEach(rel => {
+        if (rel.associationClassId) {
+          const sourceClass = this.umlClasses.find(c => c.id === rel.sourceId);
+          const targetClass = this.umlClasses.find(c => c.id === rel.targetId);
+          const assocClass = this.umlClasses.find(c => c.id === rel.associationClassId);
+          
+          if (sourceClass && targetClass && assocClass) {
+            const midPointX = (sourceClass.position.x + targetClass.position.x) / 2;
+            const midPointY = (sourceClass.position.y + targetClass.position.y) / 2;
+            
+            const visualConnector: ConnectorModel = {
+              id: 'assoc_line_' + rel.id + '_' + rel.associationClassId,
+              targetID: rel.associationClassId,
+              type: 'Straight',
+              annotations: [{ content: '' }],
+              style: { strokeColor: '#000', strokeWidth: 2, strokeDashArray: '3 3' },
+              sourcePoint: { x: midPointX, y: midPointY },
+              targetPoint: { x: assocClass.position.x, y: assocClass.position.y }
+            };
+            this.connectors.push(visualConnector);
+          }
         }
       });
+      
+      console.log('[DEBUG] CONECTORES GENERADOS:', this.connectors);
     }
-    this.showEditModal = false;
-    this.editingClass = null;
-  }
-
-  onAddClass(cls: { name: string; type: string }) {
-    // Crear un elemento UML tipo clase en el centro del canvas
-    const width = typeof this.paper?.options?.width === 'number' ? this.paper.options.width : 900;
-    const height = typeof this.paper?.options?.height === 'number' ? this.paper.options.height : 600;
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const baseHeight = 32;
-    const attrHeight = 24; // 1 atributo por defecto
-    const totalHeight = baseHeight + attrHeight;
-    const umlClass = new joint.shapes.standard.Rectangle({
-      markup: [
-        { tagName: 'rect', selector: 'body' },
-        { tagName: 'rect', selector: 'nameBg' },
-        { tagName: 'rect', selector: 'attrsBg' },
-        { tagName: 'text', selector: 'label' },
-        { tagName: 'text', selector: 'attrs' },
-      ]
-    });
-    umlClass.position(centerX - 80, centerY - totalHeight / 2);
-    umlClass.resize(160, totalHeight);
-    umlClass.attr({
-      body: {
-        fill: '#6366f1',
-        stroke: '#312e81',
-        strokeWidth: 2,
-        rx: 8,
-        ry: 8,
-        width: 160,
-        height: totalHeight,
-      },
-      nameBg: {
-        x: 0,
-        y: 0,
-        width: 160,
-        height: baseHeight,
-        fill: '#6366f1',
-        stroke: 'none',
-      },
-      attrsBg: {
-        x: 0,
-        y: baseHeight,
-        width: 160,
-        height: attrHeight,
-        fill: '#e0e7ff',
-        stroke: 'none',
-      },
-      label: {
-        text: cls.name,
-        x: 80,
-        y: baseHeight / 2 + 4,
-        textAnchor: 'middle',
-        fontSize: 18,
-        fontWeight: 'bold',
-        fill: '#fff',
-      },
-      attrs: {
-        text: '',
-        x: 80,
-        y: baseHeight + 18,
-        textAnchor: 'middle',
-        fontSize: 14,
-        fontWeight: 'normal',
-        fill: '#312e81',
+    // Forzar refresco visual
+    setTimeout(() => {
+      if (this.diagramComponent) {
+        this.diagramComponent.dataBind();
+        this.diagramComponent.refresh();
       }
-    });
-    umlClass.attr('attrs/json', JSON.stringify([]));
-    this.graph.addCell(umlClass);
+    }, 100);
   }
 
-  addNewAttribute() {
-    if (!this.newAttr.name) return;
-    this.editClassAttrs.push({
-      name: this.newAttr.name,
-      typeName: this.newAttr.typeName,
-      isPrimaryKey: this.newAttr.isPrimaryKey,
-      isRequired: this.newAttr.isRequired,
-      position: this.editClassAttrs.length
-    });
-    // Limpiar el campo de nuevo atributo y desmarcar PK si ya existe uno
-    this.newAttr = { name: '', typeName: 'String', isPrimaryKey: false, isRequired: false };
+  addNewClass(): void {
+    const newClassId = `class_${Date.now()}`;
+    const newClass: UMLClass = {
+      id: newClassId,
+      name: 'Nueva Clase',
+      visibility: 'PUBLIC',
+      position: { x: Math.random() * 400 + 300, y: Math.random() * 300 + 200 },
+      size: { w: 150, h: 80 },
+      attributes: []
+    };
+    this.umlClasses.push(newClass);
+    // Formatear contenido UML: nombre, línea, atributos (vacío al crear)
+    let content = newClass.name;
+    if (newClass.attributes && newClass.attributes.length > 0) {
+      content += '\n' + '─'.repeat(Math.max(newClass.name.length, 10)) + '\n';
+      content += newClass.attributes.map(attr => {
+        let line = attr.name + ': ' + attr.typeName;
+        if (attr.isPrimaryKey) line += ' [PK]';
+        return line;
+      }).join('\n');
+    }
+    const lines = content.split('\n');
+    const maxLineLength = Math.max(...lines.map(line => line.length));
+    const newWidth = Math.max(150, maxLineLength * 8 + 20);
+    const newHeight = Math.max(80, lines.length * 20 + 20);
+    const newNode: NodeModel = {
+      id: newClassId,
+      offsetX: newClass.position.x,
+      offsetY: newClass.position.y,
+      width: newWidth,
+      height: newHeight,
+      annotations: [{ content }],
+      style: { fill: '#ffffff', strokeColor: '#000000', strokeWidth: 2 }
+    };
+    this.nodes.push(newNode);
+    if (this.diagramComponent) {
+      this.diagramComponent.addNode(newNode);
+      this.diagramComponent.clearSelection();
+      this.diagramComponent.dataBind();
+      this.diagramComponent.refresh();
+    }
   }
+
+  onRelationSelected(relationType: string): void {
+    console.log('[DiagramShow] Relación seleccionada:', relationType);
+    this.selectedRelationType = relationType;
+    // Al seleccionar una relación, resetea selección de nodos
+    this.selectedSourceNodeId = null;
+    this.selectedTargetNodeId = null;
+  }
+
+
+  // Manejar clic en nodo del diagrama (evento de Syncfusion)
+  onNodeClick(event: any): void {
+    if (event && event.element && event.element.id) {
+      const nodeId = event.element.id;
+      console.log('[onNodeClick] Nodo clickeado:', nodeId, 'Tipo relación:', this.selectedRelationType);
+      if (!this.selectedRelationType) return;
+      if (!this.selectedSourceNodeId) {
+        this.selectedSourceNodeId = nodeId;
+        console.log('[onNodeClick] Nodo origen seleccionado:', nodeId);
+        return;
+      }
+      if (!this.selectedTargetNodeId && nodeId !== this.selectedSourceNodeId) {
+        this.selectedTargetNodeId = nodeId;
+        console.log('[onNodeClick] Nodo destino seleccionado:', nodeId);
+        this.createRelationConnector();
+      }
+    }
+  }
+
+  // Crear el conector visual según el tipo de relación UML
+  createRelationConnector(): void {
+    if (!this.selectedSourceNodeId || !this.selectedTargetNodeId || !this.selectedRelationType) {
+      console.warn('[createRelationConnector] Faltan datos para crear la relación');
+      return;
+    }
+    const connectorId = `rel_${this.selectedRelationType}_${Date.now()}`;
+
+    let connector: ConnectorModel = {
+      id: connectorId,
+      sourceID: this.selectedSourceNodeId,
+      targetID: this.selectedTargetNodeId,
+      type: 'Orthogonal',
+      style: { strokeColor: '#222', strokeWidth: 2 },
+      targetDecorator: { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } }
+    };
+
+    // Personalizar aspecto visual y guardar relación estructurada
+    let relationType = this.selectedRelationType as UMLRelation['type'];
+    switch (relationType) {
+      case 'Herencia':
+        connector.targetDecorator = { shape: 'Arrow', style: { fill: '#fff', strokeColor: '#222', strokeWidth: 2 } };
+        connector.style = { strokeColor: '#222', strokeWidth: 2 };
+        break;
+      case 'Asociación':
+        connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
+        connector.style = { strokeColor: '#222', strokeWidth: 2 };
+        break;
+      case 'Agregación':
+        connector.targetDecorator = { shape: 'Diamond', style: { fill: '#fff', strokeColor: '#222', strokeWidth: 2 } };
+        connector.style = { strokeColor: '#222', strokeWidth: 2 };
+        break;
+      case 'Composición':
+        connector.targetDecorator = { shape: 'Diamond', style: { fill: '#222', strokeColor: '#222', strokeWidth: 2 } };
+        connector.style = { strokeColor: '#222', strokeWidth: 2 };
+        break;
+      case 'Dependencia':
+        connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
+        connector.style = { strokeColor: '#222', strokeWidth: 2, strokeDashArray: '4 2' };
+        break;
+    }
+
+    // Guardar la relación en ambos arrays
+    this.umlRelations.push({
+      id: connectorId,
+      sourceId: this.selectedSourceNodeId!,
+      targetId: this.selectedTargetNodeId!,
+      type: relationType
+    });
+    this.connectors.push(connector);
+    if (this.diagramComponent) {
+      this.diagramComponent.addConnector(connector);
+      this.diagramComponent.clearSelection();
+      this.diagramComponent.dataBind();
+      this.diagramComponent.refresh();
+    }
+    // Reset selección
+    this.selectedSourceNodeId = null;
+    this.selectedTargetNodeId = null;
+    this.selectedRelationType = '';
+  }
+
+  // Eliminar clase (opcional, si tienes esta función)
+  deleteClass(classId: string) {
+    this.umlClasses = this.umlClasses.filter(cls => cls.id !== classId);
+    this.nodes = this.nodes.filter(n => n.id !== classId);
+    // Eliminar relaciones asociadas
+    this.umlRelations = this.umlRelations.filter(rel => rel.sourceId !== classId && rel.targetId !== classId);
+    this.connectors = this.connectors.filter(c => c.sourceID !== classId && c.targetID !== classId);
+    if (this.diagramComponent) {
+      const node = this.diagramComponent.getNodeObject(classId);
+      if (node) {
+        this.diagramComponent.remove(node);
+        this.diagramComponent.dataBind();
+        this.diagramComponent.refresh();
+      }
+    }
+  }
+
+  // Eliminar relación seleccionada (ya implementado, pero asegúrate de esto)
+  deleteSelectedRelation() {
+    if (!this.selectedUMLRelationId) return;
+    this.umlRelations = this.umlRelations.filter(rel => rel.id !== this.selectedUMLRelationId);
+    this.connectors = this.connectors.filter(c => c.id !== this.selectedUMLRelationId);
+    if (this.diagramComponent) {
+      const connector = this.diagramComponent.getConnectorObject(this.selectedUMLRelationId);
+      if (connector) {
+        this.diagramComponent.remove(connector);
+        this.diagramComponent.dataBind();
+        this.diagramComponent.refresh();
+      }
+    }
+    this.selectedUMLRelationId = null;
+  }
+
+  // Devuelve la clase UML real asociada a un nodo del diagrama
+  getUMLClassByNodeId(nodeId: string): UMLClass | null {
+  return this.umlClasses.find((c: UMLClass) => c.id === nodeId) || null;
+  }
+
+  // Actualiza el contenido visual del nodo en el canvas
+  updateNodeContent(umlClass: UMLClass | null) {
+    if (!umlClass) return;
+    
+    console.log('updateNodeContent llamado para:', umlClass.name, 'ID:', umlClass.id);
+    
+    // Construir contenido con formato UML: nombre arriba, línea separadora, atributos abajo
+    let content = umlClass.name;
+    
+    if (umlClass.attributes.length > 0) {
+      content += '\n' + '─'.repeat(Math.max(umlClass.name.length, 10)) + '\n'; // Línea separadora
+      content += umlClass.attributes.map(attr => {
+        let line = attr.name + ': ' + attr.typeName;
+        if (attr.isPrimaryKey) line += ' [PK]';
+        return line;
+      }).join('\n');
+    }
+    
+    console.log('Contenido generado:', content);
+    
+    // Método más directo: eliminar y recrear el nodo
+    if (this.diagramComponent) {
+      // Obtener información del nodo actual
+      const currentNode = this.diagramComponent.getNodeObject(umlClass.id);
+      if (currentNode) {
+        const currentX = currentNode.offsetX;
+        const currentY = currentNode.offsetY;
+        
+        // Eliminar el nodo actual
+        this.diagramComponent.remove(currentNode);
+        
+        // Calcular nuevo tamaño
+        const lines = content.split('\n');
+        const maxLineLength = Math.max(...lines.map(line => line.length));
+        const newWidth = Math.max(150, maxLineLength * 8 + 20);
+        const newHeight = Math.max(80, lines.length * 20 + 20);
+        
+        // Crear nodo nuevo con el contenido actualizado
+        const updatedNode: NodeModel = {
+          id: umlClass.id,
+          offsetX: currentX,
+          offsetY: currentY,
+          width: newWidth,
+          height: newHeight,
+          annotations: [{ 
+            content: content
+          }],
+          style: { 
+            fill: '#ffffff', 
+            strokeColor: '#000000', 
+            strokeWidth: 2 
+          }
+        };
+        
+        // Agregar el nodo actualizado
+        this.diagramComponent.add(updatedNode);
+        this.diagramComponent.dataBind();
+        this.diagramComponent.refresh();
+        
+        console.log('Nodo recreado con nuevo contenido');
+      }
+    }
+  }
+
+    // --- Estado y métodos para edición de relaciones ---
+  editingRelation: UMLRelation | null = null;
+  showRelationSidebar: boolean = false;
+  relationMultiplicities = ['1', '0..1', '*', '1..*'];
+
+  // Abrir panel lateral para editar relación
+  openRelationPanel(relationId: string) {
+    const rel = this.umlRelations.find(r => r.id === relationId);
+    if (rel) {
+      // Clonar para edición sin afectar el original hasta guardar
+      this.editingRelation = { ...rel };
+      this.showRelationSidebar = true;
+    }
+  }
+
+  // Cerrar panel lateral
+  closeRelationPanel() {
+    this.editingRelation = null;
+    this.showRelationSidebar = false;
+  }
+
+  // Guardar cambios en la relación editada
+  saveRelationEdit() {
+    if (!this.editingRelation) return;
+    const idx = this.umlRelations.findIndex(r => r.id === this.editingRelation!.id);
+    if (idx !== -1) {
+      // Detectar N a N por multiplicidad y crear clase intermedia si corresponde
+      const isNtoN = (this.editingRelation.type === 'Asociación' || this.editingRelation.type === 'AsociaciónNtoN') &&
+        ((this.editingRelation.sourceMultiplicity === '*' || this.editingRelation.sourceMultiplicity === '1..*') &&
+         (this.editingRelation.targetMultiplicity === '*' || this.editingRelation.targetMultiplicity === '1..*'));
+      if (isNtoN && !this.editingRelation.associationClassId) {
+        // Cambiar tipo internamente para consistencia
+        this.editingRelation.type = 'AsociaciónNtoN';
+        const assocClassId = this.createAssociationClassForNtoN(this.editingRelation);
+        this.editingRelation.associationClassId = assocClassId;
+      }
+      this.umlRelations[idx] = { ...this.editingRelation };
+    }
+    this.closeRelationPanel();
+  }
+
+  // Crear clase intermedia para NtoN
+  createAssociationClassForNtoN(relation: UMLRelation): string {
+    // Buscar las clases padres
+    const source = this.umlClasses.find(c => c.id === relation.sourceId);
+    const target = this.umlClasses.find(c => c.id === relation.targetId);
+    if (!source || !target) return '';
+    // Crear clase intermedia
+    const assocClassId = `assoc_${source.id}_${target.id}_${Date.now()}`;
+    const assocClassName = relation.name || `${source.name}_${target.name}`;
+    const assocClass: UMLClass = {
+      id: assocClassId,
+      name: assocClassName,
+      visibility: 'PUBLIC',
+      position: { x: (source.position.x + target.position.x) / 2, y: (source.position.y + target.position.y) / 2 + 100 },
+      size: { w: 180, h: 80 },
+      attributes: [
+        {
+          id: 'A' + Date.now() + '_src',
+          name: source.name.toLowerCase() + 'Id',
+          typeName: 'long',
+          isRequired: true,
+          isPrimaryKey: true,
+          position: 0
+        },
+        {
+          id: 'A' + Date.now() + '_tgt',
+          name: target.name.toLowerCase() + 'Id',
+          typeName: 'long',
+          isRequired: true,
+          isPrimaryKey: true,
+          position: 1
+        }
+      ]
+    };
+    this.umlClasses.push(assocClass);
+    // Agregar nodo visual
+    let content = assocClass.name;
+    if (assocClass.attributes.length > 0) {
+      content += '\n' + '─'.repeat(Math.max(assocClass.name.length, 10)) + '\n';
+      content += assocClass.attributes.map(attr => {
+        let line = attr.name + ': ' + attr.typeName;
+        if (attr.isPrimaryKey) line += ' [PK]';
+        return line;
+      }).join('\n');
+    }
+    const lines = content.split('\n');
+    const maxLineLength = Math.max(...lines.map(line => line.length));
+    const newWidth = Math.max(150, maxLineLength * 8 + 20);
+    const newHeight = Math.max(80, lines.length * 20 + 20);
+    const newNode: NodeModel = {
+      id: assocClassId,
+      offsetX: assocClass.position.x,
+      offsetY: assocClass.position.y,
+      width: newWidth,
+      height: newHeight,
+      annotations: [{ content }],
+      style: { fill: '#ffffff', strokeColor: '#000000', strokeWidth: 2 }
+    };
+    this.nodes.push(newNode);
+    if (this.diagramComponent) {
+      this.diagramComponent.addNode(newNode);
+      this.diagramComponent.dataBind();
+      this.diagramComponent.refresh();
+    }
+
+    // Crear solo un conector visual desde el punto medio de la relación hacia la clase intermedia
+    const midPointX = (source.position.x + target.position.x) / 2;
+    const midPointY = (source.position.y + target.position.y) / 2;
+    
+    const connectorToAssocClass: ConnectorModel = {
+      id: 'assoc_line_' + relation.id + '_' + assocClassId,
+      targetID: assocClassId,
+      type: 'Straight',
+      annotations: [{ content: '' }],
+      style: { strokeColor: '#000', strokeWidth: 2, strokeDashArray: '3 3' },
+      sourcePoint: { x: midPointX, y: midPointY },
+      targetPoint: { x: assocClass.position.x, y: assocClass.position.y }
+    };
+    this.connectors.push(connectorToAssocClass);
+    if (this.diagramComponent) {
+      this.diagramComponent.add(connectorToAssocClass);
+      this.diagramComponent.dataBind();
+      this.diagramComponent.refresh();
+    }
+    return assocClassId;
+  }
+
 }

@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DiagramService } from '../diagram.service';
 import { DiagramVersionService } from '../diagram-show/diagram-version.service';
-import { dia } from '@joint/core';
 
 @Component({
   selector: 'app-diagram-detail',
