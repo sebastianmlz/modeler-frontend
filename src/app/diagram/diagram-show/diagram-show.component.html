@@ -1,3 +1,9 @@
+<app-diagram-collaboration
+	[diagramId]="diagramId"
+	(eventReceived)="onCollabEvent($event)"
+		(statusChanged)="onCollabStatus($event)"
+	#collabComp>
+</app-diagram-collaboration>
 <div style="position: fixed; top: 48px; left: 0; width: 100%; background: #f8fafc; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 2rem 0.7rem 1.5rem; z-index: 200; height: 56px; box-sizing: border-box;">
 	<div style="display: flex; align-items: center; gap: 1.5rem;">
 		<span style="font-size: 1.15rem; font-weight: 600; color: #222; letter-spacing: 0.5px;">Diagrama UML</span>
@@ -29,7 +35,10 @@
 			[nodes]="nodes"
 			[connectors]="connectors"
 			[selectedItems]="selectedItems"
-			(selectionChange)="onSelectionChange($event)">
+			(selectionChange)="onSelectionChange($event)"
+			(dragStop)="onElementMoved($event)"
+			(propertyChange)="onPropertyChange($event)"
+			(created)="onDiagramCreated($event)">
 		</ejs-diagram>
 		<!-- Panel lateral de edición de clase -->
 		<div *ngIf="selectedUMLClass" style="position: absolute; top: 0; right: 0; height: 100%; width: 380px; background: #fff; box-shadow: -2px 0 8px #0001; z-index: 50; padding: 1.5rem; overflow-y: auto; border-left: 1px solid #e5e7eb;">
