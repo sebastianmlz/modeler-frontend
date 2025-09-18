@@ -49,7 +49,7 @@ export const ATTRIBUTE_TYPES = [
 
 
 import { Component, OnInit, ViewChild } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { DiagramVersionService } from './diagram-version.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -270,8 +270,20 @@ export class DiagramShowComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private versionService: DiagramVersionService
+    private versionService: DiagramVersionService,
+    private router: Router
   ) {}
+  // Redirige a diagram-export con el snapshot actual
+  exportSpringBootBackend() {
+    this.syncDataFromVisuals();
+    const snapshot = {
+      classes: this.umlClasses,
+      relations: this.umlRelations,
+      metadata: {}
+    };
+    // Navegar a diagram-export pasando el snapshot como estado
+    this.router.navigate(['/diagram/export'], { state: { snapshot } });
+  }
 
   ngOnInit(): void {
     console.log('[DEBUG] ngOnInit ejecutado');
