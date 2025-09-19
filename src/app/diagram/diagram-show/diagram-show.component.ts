@@ -119,6 +119,13 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
           console.log('[DEBUG] 🆕 Nodos en array después de agregar:', this.nodes.map(n => ({ id: n.id, x: n.offsetX, y: n.offsetY })));
           if (this.diagramComponent) {
             this.diagramComponent.addNode(newNode);
+            
+            // Actualizar referencias de arrays para sincronización
+            this.diagramComponent.nodes = [...this.diagramComponent.nodes];
+            if (this.diagramComponent.connectors) {
+              this.diagramComponent.connectors = [...this.connectors];
+            }
+            
             this.diagramComponent.dataBind();
             this.diagramComponent.refresh();
             
@@ -149,6 +156,11 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
           const node = this.diagramComponent.getNodeObject(classId);
           if (node) {
             this.diagramComponent.remove(node);
+            
+            // Actualizar referencias de arrays para sincronización
+            this.diagramComponent.nodes = [...this.nodes];
+            this.diagramComponent.connectors = [...this.connectors];
+            
             this.diagramComponent.dataBind();
             this.diagramComponent.refresh();
           }
@@ -192,6 +204,13 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
           this.connectors.push(connector);
           if (this.diagramComponent) {
             this.diagramComponent.addConnector(connector);
+            
+            // Actualizar referencias de arrays para sincronización
+            this.diagramComponent.connectors = [...this.connectors];
+            if (this.diagramComponent.nodes) {
+              this.diagramComponent.nodes = [...this.nodes];
+            }
+            
             this.diagramComponent.dataBind();
             this.diagramComponent.refresh();
           }
@@ -206,6 +225,13 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
           const connector = this.diagramComponent.getConnectorObject(relationId);
           if (connector) {
             this.diagramComponent.remove(connector);
+            
+            // Actualizar referencias de arrays para sincronización
+            this.diagramComponent.connectors = [...this.connectors];
+            if (this.diagramComponent.nodes) {
+              this.diagramComponent.nodes = [...this.nodes];
+            }
+            
             this.diagramComponent.dataBind();
             this.diagramComponent.refresh();
           }
@@ -284,18 +310,67 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
             // Actualizar visualmente en el diagrama
             if (this.diagramComponent) {
               console.log('[COLABORACIÓN] 🎨 Actualizando diagrama visual...');
-              const nodeObj = this.diagramComponent.getNodeObject(elementId);
-              if (nodeObj) {
-                console.log('[COLABORACIÓN] 🎨 Nodo encontrado en diagrama:', elementId);
-                console.log('[COLABORACIÓN] 🎨 Posición anterior:', nodeObj.offsetX, nodeObj.offsetY);
-                nodeObj.offsetX = position.x;
-                nodeObj.offsetY = position.y;
-                console.log('[COLABORACIÓN] 🎨 Nueva posición aplicada:', nodeObj.offsetX, nodeObj.offsetY);
-                this.diagramComponent.dataBind();
-                this.diagramComponent.refresh();
-                console.log('[COLABORACIÓN] ✅ Diagrama actualizado y refrescado');
-              } else {
-                console.warn('[COLABORACIÓN] ⚠️ No se encontró objeto de nodo en diagrama:', elementId);
+              
+              try {
+                // Buscar en nodes array del diagrama
+                let nodeObj = null;
+                if (this.diagramComponent.nodes) {
+                  nodeObj = this.diagramComponent.nodes.find(n => n.id === elementId);
+                  console.log('[COLABORACIÓN] 🎨 Nodo encontrado en array:', nodeObj);
+                }
+                
+                if (nodeObj) {
+                  console.log('[COLABORACIÓN] 🎨 Nodo encontrado en diagrama:', elementId);
+                  console.log('[COLABORACIÓN] 🎨 Posición anterior:', nodeObj.offsetX, nodeObj.offsetY);
+                  
+                  // Actualizar posición del nodo
+                  nodeObj.offsetX = position.x;
+                  nodeObj.offsetY = position.y;
+                  console.log('[COLABORACIÓN] 🎨 Nueva posición aplicada:', nodeObj.offsetX, nodeObj.offsetY);
+                  
+                  // CLAVE: Crear nueva referencia del array para forzar detección de cambios de Angular
+                  this.diagramComponent.nodes = [...this.diagramComponent.nodes];
+                  console.log('[COLABORACIÓN] ✅ Array de nodos actualizado con nueva referencia');
+                  
+                  // IMPORTANTE: También actualizar conectores para mantener relaciones visibles
+                  if (this.diagramComponent.connectors && this.connectors) {
+                    this.diagramComponent.connectors = [...this.connectors];
+                    console.log('[COLABORACIÓN] ✅ Array de conectores actualizado con nueva referencia');
+                  }
+                  
+                  try {
+                    this.diagramComponent.dataBind();
+                    console.log('[COLABORACIÓN] ✅ dataBind ejecutado');
+                  } catch (e) {
+                    console.log('[COLABORACIÓN] ⚠️ dataBind falló:', e);
+                  }
+                  
+                  try {
+                    this.diagramComponent.refresh();
+                    console.log('[COLABORACIÓN] ✅ refresh ejecutado');
+                  } catch (e) {
+                    console.log('[COLABORACIÓN] ⚠️ refresh falló:', e);
+                  }
+                  
+                  console.log('[COLABORACIÓN] ✅ Diagrama actualizado visualmente');
+                } else {
+                  console.warn('[COLABORACIÓN] ⚠️ No se encontró objeto de nodo en diagrama:', elementId);
+                  
+                  // Método de fallback: Actualizar todo el diagrama
+                  console.log('[COLABORACIÓN] 🔄 Aplicando actualización de fallback...');
+                  try {
+                    // Sincronizar arrays completos
+                    this.diagramComponent.nodes = [...this.nodes];
+                    this.diagramComponent.connectors = [...this.connectors];
+                    this.diagramComponent.dataBind();
+                    this.diagramComponent.refresh();
+                    console.log('[COLABORACIÓN] ✅ Fallback completado - diagrama sincronizado');
+                  } catch (e) {
+                    console.error('[COLABORACIÓN] ❌ Fallback falló:', e);
+                  }
+                }
+              } catch (error) {
+                console.error('[COLABORACIÓN] ❌ Error general en actualización visual:', error);
               }
             } else {
               console.error('[COLABORACIÓN] ❌ DiagramComponent no disponible');
@@ -376,17 +451,22 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Maneja cuando se mueve un elemento (método único y simple)
   onElementMoved(event: any) {
-    console.log('[MOVIMIENTO] onElementMoved disparado:', event);
+    console.log('🚀 [DRAG-STOP] ===== EVENTO DETECTADO =====');
+    console.log('🚀 [DRAG-STOP] Event completo:', event);
+    console.log('🚀 [DRAG-STOP] Element:', event?.element);
+    console.log('🚀 [DRAG-STOP] Element ID:', event?.element?.id);
+    console.log('🚀 [DRAG-STOP] Position:', { x: event?.element?.offsetX, y: event?.element?.offsetY });
+    console.log('🚀 [DRAG-STOP] ===============================');
     
     // Validar evento
     if (!event?.element?.id) {
-      console.warn('[MOVIMIENTO] Evento inválido');
+      console.warn('🚀 [DRAG-STOP] ❌ Evento inválido - falta element.id');
       return;
     }
     
     // No procesar si estamos aplicando cambio colaborativo
     if (this.isApplyingCollabChange) {
-      console.log('[MOVIMIENTO] Ignorando - aplicando cambio colaborativo');
+      console.log('🚀 [DRAG-STOP] ⏸️ Ignorando - aplicando cambio colaborativo');
       return;
     }
     
@@ -394,7 +474,17 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     const newX = event.element.offsetX;
     const newY = event.element.offsetY;
     
-    console.log(`[MOVIMIENTO] Elemento ${elementId} movido a (${newX}, ${newY})`);
+    console.log(`🚀 [DRAG-STOP] ✅ PROCESANDO: ${elementId} → (${newX}, ${newY})`);
+    
+    // Verificar que es uno de nuestros elementos
+    const isOurElement = this.nodes.find(n => n.id === elementId);
+    if (!isOurElement) {
+      console.warn('🚀 [DRAG-STOP] ❌ Elemento no es nuestro:', elementId);
+      console.log('🚀 [DRAG-STOP] Nuestros nodos:', this.nodes.map(n => n.id));
+      return;
+    }
+    
+    console.log('🚀 [DRAG-STOP] ✅ Elemento confirmado como nuestro');
     
     // Actualizar datos locales
     this.updateLocalPosition(elementId, newX, newY);
@@ -405,8 +495,14 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Evento que se dispara cuando cambian propiedades del diagrama
   onPropertyChange(event: any) {
-    console.log('[DEBUG] PropertyChange event COMPLETO:', event);
-    console.log('[DEBUG] Event keys:', Object.keys(event || {}));
+    console.log('🔥 [PROPERTY-CHANGE] ===== EVENTO DETECTADO =====');
+    console.log('🔥 [PROPERTY-CHANGE] Event completo:', event);
+    console.log('🔥 [PROPERTY-CHANGE] Event keys:', Object.keys(event || {}));
+    console.log('🔥 [PROPERTY-CHANGE] Cause:', event?.cause);
+    console.log('🔥 [PROPERTY-CHANGE] PropertyName:', event?.propertyName);
+    console.log('🔥 [PROPERTY-CHANGE] Element:', event?.element);
+    console.log('🔥 [PROPERTY-CHANGE] Element ID:', event?.element?.id);
+    console.log('🔥 [PROPERTY-CHANGE] ===============================');
     
     // El evento puede tener diferentes estructuras
     let element = event?.element;
@@ -415,58 +511,101 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     
     // Si element es undefined, pero hay otras propiedades, buscar el elemento de otra manera
     if (!element && event) {
+      console.log('🔥 [PROPERTY-CHANGE] Element undefined, buscando alternativas...');
       // Buscar propiedades que indiquen un elemento
       if (event.cause === 'ToolAction') {
-        console.log('[DEBUG] 🔧 Evento de Tool Action detectado');
+        console.log('🔥 [PROPERTY-CHANGE] 🔧 Evento de Tool Action detectado');
         // Buscar el elemento en el diagrama que se esté moviendo
         if (this.diagramComponent && this.diagramComponent.selectedItems && 
             this.diagramComponent.selectedItems.nodes && 
             this.diagramComponent.selectedItems.nodes.length > 0) {
           element = this.diagramComponent.selectedItems.nodes[0];
-          console.log('[DEBUG] 🔧 Elemento encontrado via selectedItems:', element);
+          console.log('🔥 [PROPERTY-CHANGE] 🔧 Elemento encontrado via selectedItems:', element);
         }
       }
     }
     
-    console.log('[DEBUG] Element final:', element);
-    console.log('[DEBUG] Element.id final:', element?.id);
-    console.log('[DEBUG] PropertyName:', propertyName);
+    console.log('🔥 [PROPERTY-CHANGE] Element final:', element);
+    console.log('🔥 [PROPERTY-CHANGE] Element.id final:', element?.id);
+    console.log('🔥 [PROPERTY-CHANGE] PropertyName final:', propertyName);
+    
+    // Detectar eventos de movimiento de manera más amplia
+    const isMovementEvent = (
+      // Caso 1: Evento con element válido y propertyName de posición
+      (element && element.id && (propertyName === 'offsetX' || propertyName === 'offsetY')) ||
+      // Caso 2: Evento sin propertyName pero con element válido (movimiento por drag)
+      (element && element.id && !propertyName) ||
+      // Caso 3: Evento de ToolAction (arrastrar y soltar)
+      (event?.cause === 'ToolAction' && element) ||
+      // Caso 4: Si no hay element pero hay evento de tool action, buscar elemento seleccionado
+      (event?.cause === 'ToolAction' && !element && 
+       this.diagramComponent && this.diagramComponent.selectedItems && 
+       this.diagramComponent.selectedItems.nodes && 
+       this.diagramComponent.selectedItems.nodes.length > 0)
+    );
+    
+    console.log('🔥 [PROPERTY-CHANGE] ¿Es evento de movimiento?', isMovementEvent);
+    
+    // Si no hay element pero parece ser movimiento, intentar obtenerlo
+    if (isMovementEvent && !element && event?.cause === 'ToolAction') {
+      if (this.diagramComponent && this.diagramComponent.selectedItems && 
+          this.diagramComponent.selectedItems.nodes && 
+          this.diagramComponent.selectedItems.nodes.length > 0) {
+        element = this.diagramComponent.selectedItems.nodes[0];
+        console.log('🔥 [PROPERTY-CHANGE] 🔍 Element obtenido de selectedItems:', element);
+      }
+    }
     
     // Verificar si es un cambio de posición
-    if (element && element.id && (propertyName === 'offsetX' || propertyName === 'offsetY' || !propertyName)) {
-      console.log('[DEBUG] ⚠️ PROBLEMA DETECTADO - ID del elemento:', element.id);
-      console.log('[DEBUG] ⚠️ Nuestros IDs de clases UML:', this.umlClasses.map(c => c.id));
-      console.log('[DEBUG] ⚠️ IDs de nodos en array:', this.nodes.map(n => n.id));
+    if (isMovementEvent && element) {
+      console.log('🔥 [PROPERTY-CHANGE] ✅ ES CAMBIO DE POSICIÓN');
+      console.log('🔥 [PROPERTY-CHANGE] Element completo:', element);
+      console.log('🔥 [PROPERTY-CHANGE] ID del elemento:', element.id);
+      console.log('🔥 [PROPERTY-CHANGE] Posición del elemento:', { x: element.offsetX, y: element.offsetY });
+      console.log('🔥 [PROPERTY-CHANGE] Nuestros IDs de clases UML:', this.umlClasses.map(c => c.id));
+      console.log('🔥 [PROPERTY-CHANGE] IDs de nodos en array:', this.nodes.map(n => n.id));
       
-      // Intentar encontrar el ID correcto usando posición
-      const currentPos = { x: element.offsetX || 0, y: element.offsetY || 0 };
-      console.log('[DEBUG] 🔍 Buscando por posición:', currentPos);
-      
-      // Buscar en nuestros nodos por ID directo primero
-      let realElement = this.nodes.find(n => n.id === element.id);
-      if (!realElement) {
-        // Si no encuentra por ID, buscar por posición aproximada
-        realElement = this.nodes.find(n => 
+      // Si no tiene ID, intentar encontrarlo por posición
+      let elementToProcess = element;
+      if (!element.id) {
+        console.log('🔥 [PROPERTY-CHANGE] ⚠️ Element sin ID, buscando por posición...');
+        const currentPos = { x: element.offsetX || 0, y: element.offsetY || 0 };
+        console.log('🔥 [PROPERTY-CHANGE] 🔍 Posición actual:', currentPos);
+        
+        const nodeByPosition = this.nodes.find(n => 
           Math.abs((n.offsetX || 0) - currentPos.x) < 10 && 
           Math.abs((n.offsetY || 0) - currentPos.y) < 10
         );
-        console.log('[DEBUG] 🔍 Elemento encontrado por posición:', realElement);
-      } else {
-        console.log('[DEBUG] 🔍 Elemento encontrado por ID:', realElement);
+        
+        if (nodeByPosition) {
+          console.log('🔥 [PROPERTY-CHANGE] ✅ Nodo encontrado por posición:', nodeByPosition.id);
+          elementToProcess = {
+            ...element,
+            id: nodeByPosition.id
+          };
+        } else {
+          console.warn('🔥 [PROPERTY-CHANGE] ❌ No se encontró nodo por posición');
+          return;
+        }
       }
       
-      if (realElement) {
-        console.log('[DEBUG] ✅ Usando elemento real con ID:', realElement.id);
-        // Usar las coordenadas actuales del elemento del diagrama
-        const elementToUse = {
-          ...realElement,
-          offsetX: element.offsetX || realElement.offsetX,
-          offsetY: element.offsetY || realElement.offsetY
-        };
-        this.handlePositionChangeDebounced(elementToUse);
-      } else {
-        console.warn('[DEBUG] ❌ No se pudo encontrar elemento real para:', element.id);
+      // Verificar que es uno de nuestros elementos
+      const realElement = this.nodes.find(n => n.id === elementToProcess.id);
+      if (!realElement) {
+        console.warn('🔥 [PROPERTY-CHANGE] ❌ Elemento no es nuestro:', elementToProcess.id);
+        return;
       }
+      
+      console.log('🔥 [PROPERTY-CHANGE] ✅ PROCESANDO MOVIMIENTO con ID:', elementToProcess.id);
+      // Usar las coordenadas actuales del elemento del diagrama
+      const elementToUse = {
+        ...realElement,
+        offsetX: elementToProcess.offsetX || realElement.offsetX,
+        offsetY: elementToProcess.offsetY || realElement.offsetY
+      };
+      this.handlePositionChangeDebounced(elementToUse);
+    } else {
+      console.log('🔥 [PROPERTY-CHANGE] ❌ NO es cambio de posición o elemento inválido');
     }
   }
 
@@ -544,6 +683,99 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       console.log('[MOVIMIENTO] ✅ Evento enviado exitosamente');
     } catch (error) {
       console.error('[MOVIMIENTO] ❌ Error al enviar evento:', error);
+    }
+  }
+
+  // ===== SISTEMA DE MONITOREO DE POSICIONES (RESPALDO) =====
+  
+  // Inicializar el monitoreo de posiciones
+  private startPositionMonitoring() {
+    console.log('🔄 [POSITION-MONITOR] Iniciando monitoreo de posiciones...');
+    
+    // Limpiar interval anterior si existe
+    if (this.positionMonitorInterval) {
+      clearInterval(this.positionMonitorInterval);
+    }
+    
+    // Monitorear cada 500ms
+    this.positionMonitorInterval = setInterval(() => {
+      this.checkPositionChanges();
+    }, 500);
+  }
+  
+  // Verificar cambios de posición
+  private checkPositionChanges() {
+    if (this.isApplyingCollabChange || !this.diagramComponent) {
+      return;
+    }
+    
+    try {
+      // Revisar cada nodo en el diagrama
+      if (this.diagramComponent.nodes) {
+        this.diagramComponent.nodes.forEach((diagramNode: any) => {
+          const nodeId = diagramNode.id;
+          const currentX = diagramNode.offsetX || 0;
+          const currentY = diagramNode.offsetY || 0;
+          
+          // Verificar si es uno de nuestros nodos
+          const isOurNode = this.nodes.find(n => n.id === nodeId);
+          if (!isOurNode) return;
+          
+          // Obtener última posición conocida
+          const lastPos = this.lastKnownPositions.get(nodeId);
+          
+          if (lastPos) {
+            // Verificar si hubo cambio significativo (>2 píxeles para evitar micro-movimientos)
+            const deltaX = Math.abs(currentX - lastPos.x);
+            const deltaY = Math.abs(currentY - lastPos.y);
+            
+            if (deltaX > 2 || deltaY > 2) {
+              console.log(`🔄 [POSITION-MONITOR] ✅ Cambio detectado en ${nodeId}: (${lastPos.x}, ${lastPos.y}) → (${currentX}, ${currentY})`);
+              
+              // Actualizar datos locales
+              this.updateLocalPosition(nodeId, currentX, currentY);
+              
+              // Enviar evento colaborativo
+              this.sendMoveEvent(nodeId, currentX, currentY);
+              
+              // Actualizar posición conocida
+              this.lastKnownPositions.set(nodeId, { x: currentX, y: currentY });
+            }
+          } else {
+            // Primera vez que vemos este nodo, guardar posición inicial
+            this.lastKnownPositions.set(nodeId, { x: currentX, y: currentY });
+          }
+        });
+      }
+    } catch (error) {
+      console.error('🔄 [POSITION-MONITOR] Error en monitoreo:', error);
+    }
+  }
+  
+  // Actualizar posiciones conocidas cuando se cargan nodos
+  private updateKnownPositions() {
+    this.lastKnownPositions.clear();
+    
+    if (this.diagramComponent && this.diagramComponent.nodes) {
+      this.diagramComponent.nodes.forEach((node: any) => {
+        if (node.id) {
+          this.lastKnownPositions.set(node.id, {
+            x: node.offsetX || 0,
+            y: node.offsetY || 0
+          });
+        }
+      });
+    }
+    
+    console.log('🔄 [POSITION-MONITOR] Posiciones iniciales actualizadas:', this.lastKnownPositions.size);
+  }
+  
+  // Detener el monitoreo
+  private stopPositionMonitoring() {
+    if (this.positionMonitorInterval) {
+      clearInterval(this.positionMonitorInterval);
+      this.positionMonitorInterval = null;
+      console.log('🔄 [POSITION-MONITOR] Monitoreo detenido');
     }
   }
 
@@ -631,6 +863,10 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
   private isApplyingCollabChange: boolean = false;
   // Control de auto-guardado
   private autoSaveTimeout: any = null;
+  
+  // Sistema de monitoreo de posiciones como respaldo
+  private lastKnownPositions: Map<string, { x: number, y: number }> = new Map();
+  private positionMonitorInterval: any = null;
 
   // Sincroniza los arrays de datos con los visuales antes de guardar
   syncDataFromVisuals() {
@@ -955,11 +1191,17 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       
       console.log('[DEBUG] CONECTORES GENERADOS:', this.connectors);
     }
-    // Forzar refresco visual
+    // Forzar refresco visual e inicializar monitoreo
     setTimeout(() => {
       if (this.diagramComponent) {
         this.diagramComponent.dataBind();
         this.diagramComponent.refresh();
+        
+        // Inicializar sistema de monitoreo de posiciones después del refresco
+        setTimeout(() => {
+          this.updateKnownPositions();
+          this.startPositionMonitoring();
+        }, 200);
       }
     }, 100);
   }
@@ -1005,6 +1247,12 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       this.diagramComponent.clearSelection();
       this.diagramComponent.dataBind();
       this.diagramComponent.refresh();
+      
+      // Agregar nueva posición al monitoreo
+      this.lastKnownPositions.set(newClassId, { 
+        x: newClass.position.x, 
+        y: newClass.position.y 
+      });
     }
     // Emitir evento colaborativo
     if (this.collabComp && this.collabComp.sendEvent) {
@@ -1168,6 +1416,10 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       const connector = this.diagramComponent.getConnectorObject(this.selectedUMLRelationId);
       if (connector) {
         this.diagramComponent.remove(connector);
+        
+        // Actualizar referencias de arrays para sincronización
+        this.diagramComponent.connectors = [...this.connectors];
+        
         this.diagramComponent.dataBind();
         this.diagramComponent.refresh();
       }
@@ -1236,6 +1488,13 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
         
         // Agregar el nodo actualizado
         this.diagramComponent.add(updatedNode);
+        
+        // Actualizar referencias de arrays para sincronización
+        this.diagramComponent.nodes = [...this.diagramComponent.nodes];
+        if (this.diagramComponent.connectors) {
+          this.diagramComponent.connectors = [...this.connectors];
+        }
+        
         this.diagramComponent.dataBind();
         this.diagramComponent.refresh();
         
@@ -1375,12 +1634,70 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngAfterViewInit(): void {
     // Verificar que el componente de colaboración esté disponible
-    console.log('[DEBUG] ngAfterViewInit - collabComp disponible:', !!this.collabComp);
+    console.log('🔍 [AFTER-VIEW-INIT] ngAfterViewInit ejecutado');
+    console.log('🔍 [AFTER-VIEW-INIT] collabComp disponible:', !!this.collabComp);
+    console.log('🔍 [AFTER-VIEW-INIT] diagramComponent disponible:', !!this.diagramComponent);
+    
     if (this.collabComp) {
-      console.log('[DEBUG] Componente de colaboración inicializado correctamente');
+      console.log('🔍 [AFTER-VIEW-INIT] ✅ Componente de colaboración inicializado correctamente');
     } else {
-      console.error('[DEBUG] Componente de colaboración NO está disponible');
+      console.error('🔍 [AFTER-VIEW-INIT] ❌ Componente de colaboración NO está disponible');
     }
+    
+    // Agregar funciones de debugging global para consola del navegador
+    (window as any).diagramDebug = {
+      testMovement: () => {
+        console.log('🧪 [TEST] Simulando movimiento de primer nodo...');
+        if (this.nodes.length > 0) {
+          const testNode = this.nodes[0];
+          console.log('🧪 [TEST] Nodo a mover:', testNode.id);
+          
+          // Simular evento de movimiento
+          const fakeEvent = {
+            element: {
+              id: testNode.id,
+              offsetX: (testNode.offsetX || 0) + 50,
+              offsetY: (testNode.offsetY || 0) + 50
+            }
+          };
+          
+          console.log('🧪 [TEST] Llamando onElementMoved...');
+          this.onElementMoved(fakeEvent);
+        } else {
+          console.log('🧪 [TEST] No hay nodos para mover');
+        }
+      },
+      getState: () => {
+        return {
+          diagramId: this.diagramId,
+          nodes: this.nodes.map(n => ({ id: n.id, x: n.offsetX, y: n.offsetY })),
+          classes: this.umlClasses.map(c => ({ id: c.id, name: c.name, x: c.position.x, y: c.position.y })),
+          collabCompAvailable: !!this.collabComp,
+          diagramCompAvailable: !!this.diagramComponent
+        };
+      },
+      forcePropertyChange: () => {
+        console.log('🧪 [TEST] Forzando disparo de propertyChange...');
+        if (this.diagramComponent && this.nodes.length > 0) {
+          const testNode = this.nodes[0];
+          // Intentar obtener el nodo del diagrama y modificar su posición
+          const diagramNode = this.diagramComponent.getNodeObject(testNode.id!);
+          if (diagramNode) {
+            console.log('🧪 [TEST] Nodo encontrado en diagrama, modificando posición...');
+            // Forzar un cambio pequeño
+            diagramNode.offsetX = (diagramNode.offsetX || 0) + 1;
+            this.diagramComponent.dataBind();
+            this.diagramComponent.refresh();
+          }
+        }
+      }
+    };
+    
+    console.log('🔍 [AFTER-VIEW-INIT] ✅ Funciones de debug agregadas a window.diagramDebug');
+    console.log('🔍 [AFTER-VIEW-INIT] Funciones disponibles:');
+    console.log('  - window.diagramDebug.testMovement() // Simula movimiento');
+    console.log('  - window.diagramDebug.getState() // Estado actual');
+    console.log('  - window.diagramDebug.forcePropertyChange() // Fuerza evento');
   }
 
   ngOnDestroy(): void {
@@ -1389,6 +1706,9 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       clearTimeout(this.autoSaveTimeout);
       this.autoSaveTimeout = null;
     }
+    
+    // Detener monitoreo de posiciones
+    this.stopPositionMonitoring();
   }
 
 }
