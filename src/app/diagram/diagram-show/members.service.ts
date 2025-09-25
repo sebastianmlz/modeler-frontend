@@ -18,4 +18,9 @@ export class MembersService {
 	getMyDiagrams(): Observable<any> {
 		return this.http.get(`${this.apiUrl}/api/my-diagrams/`);
 	}
+
+	// Obtener proyectos donde el usuario es miembro (con más información del proyecto)
+	getMyProjects(): Observable<any> {
+		return this.http.get(`${this.apiUrl}/api/my-projects/`);
+	}
 }

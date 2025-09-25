@@ -13,7 +13,15 @@ import { ProjectService } from '../project.service';
 export class ProjectDetailComponent implements OnInit {
   goToDiagramList(): void {
     if (this.project?.id) {
-      this.router.navigate(['/diagram/list'], { queryParams: { project: this.project.id } });
+      // Pasar los datos de los diagramas que ya tenemos para evitar problemas de permisos
+      this.router.navigate(['/diagram/list'], { 
+        queryParams: { project: this.project.id },
+        state: {
+          diagrams: this.diagrams,
+          projectData: this.project,
+          fromProjectDetail: true
+        }
+      });
     } else {
       this.router.navigate(['/diagram/list']);
     }
@@ -31,7 +39,20 @@ export class ProjectDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
-    if (id) {
+    
+    // Verificar si tenemos datos del proyecto desde el dashboard
+    const navigationState = this.router.getCurrentNavigation()?.extras?.state || 
+                           (history.state?.projectData ? history.state : null);
+    
+    if (navigationState && navigationState.projectData && navigationState.fromDashboard) {
+      // Usar los datos que vienen del dashboard
+      console.log('[ProjectDetail] Usando datos del dashboard:', navigationState.projectData);
+      this.project = navigationState.projectData.project;
+      this.diagrams = navigationState.projectData.diagrams || [];
+      this.loading = false;
+    } else if (id) {
+      // Fallback: intentar cargar desde la API (para usuarios creadores)
+      console.log('[ProjectDetail] Cargando desde API...');
       this.projectService.getProject(id).subscribe({
         next: (proj) => {
           this.project = proj;
@@ -43,7 +64,8 @@ export class ProjectDetailComponent implements OnInit {
           this.loading = false;
         },
         error: (err) => {
-          this.error = 'No se pudo cargar el proyecto.';
+          console.error('[ProjectDetail] Error al cargar proyecto:', err);
+          this.error = 'No se pudo cargar el proyecto. Es posible que no tengas permisos suficientes.';
           this.loading = false;
         }
       });
@@ -51,6 +73,10 @@ export class ProjectDetailComponent implements OnInit {
       this.error = 'ID de proyecto no válido.';
       this.loading = false;
     }
+  }
+
+  goToDiagramShow(diagramId: string): void {
+    this.router.navigate(['/diagram/show', diagramId]);
   }
 
   goBack(): void {

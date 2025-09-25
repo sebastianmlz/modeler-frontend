@@ -62,9 +62,9 @@
 						<td class="px-4 py-2">{{ diagram.name }}</td>
 						<td class="px-4 py-2">{{ diagram.created_at | date:'medium' }}</td>
 						<td class="px-4 py-2">
-							<button class="pButton p-button-rounded bg-yellow-300 text-blue-800 hover:bg-yellow-400 font-semibold px-3 py-1 flex items-center gap-2 transition shadow">
+							<button (click)="goToDiagramShow(diagram.id)" class="pButton p-button-rounded bg-yellow-300 text-blue-800 hover:bg-yellow-400 font-semibold px-3 py-1 flex items-center gap-2 transition shadow">
 								<i class="pi pi-eye text-blue-800"></i>
-								Ver detalle
+								Ver diagrama
 							</button>
 						</td>
 					</tr>

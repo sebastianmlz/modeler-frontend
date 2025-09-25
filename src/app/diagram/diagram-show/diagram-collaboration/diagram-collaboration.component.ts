@@ -13,6 +13,7 @@ export class DiagramCollaborationComponent implements OnInit, OnDestroy {
   @Input() token?: string;
   @Output() eventReceived = new EventEmitter<DiagramCollabEvent>();
   @Output() statusChanged = new EventEmitter<'disconnected' | 'connecting' | 'connected'>();
+  @Output() activeMembersChanged = new EventEmitter<string[]>();
 
   private eventsSub?: Subscription;
   private statusSub?: Subscription;
@@ -33,6 +34,9 @@ export class DiagramCollaborationComponent implements OnInit, OnDestroy {
             console.log('[CollabComponent] ✅ Evento recibido del servicio:', event);
             this.eventReceived.emit(event);
             console.log('[CollabComponent] ✅ Evento emitido al componente padre');
+            
+            // Detectar eventos que contengan información de usuarios activos
+            this.handleActiveUsersFromEvent(event);
           },
           error: (error) => {
             console.error('[CollabComponent] ❌ Error en eventos:', error);
@@ -43,6 +47,23 @@ export class DiagramCollaborationComponent implements OnInit, OnDestroy {
           next: (status) => {
             console.log('[CollabComponent] 🔄 Cambio de estado:', status);
             this.statusChanged.emit(status);
+            
+            // Cuando nos conectamos, marcarnos como usuario activo
+            if (status === 'connected') {
+              const currentUserId = this.getCurrentUserId();
+              console.log('[CollabComponent] 🔍 Estado conectado - User ID obtenido:', currentUserId);
+              if (currentUserId) {
+                console.log('[CollabComponent] 👥 Emitiendo usuario conectado:', currentUserId);
+                console.log('[CollabComponent] 👥 Emitiendo evento activeMembersChanged con:', [currentUserId]);
+                this.activeMembersChanged.emit([currentUserId]);
+              } else {
+                console.error('[CollabComponent] ❌ No se pudo obtener user_id - no se puede marcar como activo');
+              }
+            } else if (status === 'disconnected') {
+              // Cuando nos desconectamos, limpiar lista de activos
+              console.log('[CollabComponent] 👥 Estado desconectado - Emitiendo lista vacía');
+              this.activeMembersChanged.emit([]);
+            }
           },
           error: (error) => {
             console.error('[CollabComponent] ❌ Error en estado:', error);
@@ -67,6 +88,40 @@ export class DiagramCollaborationComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('[CollabComponent] ❌ Error al enviar evento:', error);
       console.log('[CollabComponent] ⚠️ Continuando en modo local');
+    }
+  }
+
+  private handleActiveUsersFromEvent(event: DiagramCollabEvent) {
+    // Si el evento es de tipo 'active_users', emitir la lista de IDs conectados
+    if ((event as any).type === 'active_users' && Array.isArray(event.payload)) {
+      const ids = event.payload.map((u: any) => u.id?.toString()).filter(Boolean);
+      console.log('[CollabComponent] 👥 Usuarios activos recibidos del backend:', ids);
+      this.activeMembersChanged.emit(ids);
+    }
+  }
+
+  private getCurrentUserId(): string | null {
+    // Extraer el user_id del JWT token
+    if (!this.token) {
+      console.log('[CollabComponent] No hay token disponible para extraer user_id');
+      return null;
+    }
+    
+    try {
+      const parts = this.token.split('.');
+      if (parts.length !== 3) {
+        console.error('[CollabComponent] Token JWT inválido - no tiene 3 partes');
+        return null;
+      }
+      
+      const payload = JSON.parse(atob(parts[1]));
+      console.log('[CollabComponent] Payload del JWT:', payload);
+      const userId = payload.user_id?.toString() || null;
+      console.log('[CollabComponent] User ID extraído:', userId);
+      return userId;
+    } catch (error) {
+      console.error('[CollabComponent] Error al extraer user_id del token:', error);
+      return null;
     }
   }
 

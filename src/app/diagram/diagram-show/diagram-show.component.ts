@@ -70,7 +70,9 @@ import { MembersService } from './members.service';
 })
 export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     // Miembros colaborativos conectados en tiempo real
-    collabMembers: any[] = [];
+  collabMembers: any[] = [];
+  // Lista de miembros conectados en tiempo real (IDs)
+  activeMemberIds: Set<string> = new Set();
   @ViewChild('collabComp', { static: false }) collabComp!: DiagramCollaborationComponent;
 
   // Maneja cambios de estado de la colaboración (opcional: puedes mostrar estado en UI si lo deseas)
@@ -1215,44 +1217,77 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     this.router.navigate(['/diagram/export'], { state: { snapshot } });
   }
 
-  ngOnInit(): void {
-    console.log('[DEBUG] ngOnInit ejecutado');
-    // Obtener diagramId de la URL
-    this.diagramId = this.route.snapshot.paramMap.get('id') || '';
-    console.log('[DEBUG] diagramId obtenido:', this.diagramId);
-    // Obtener versionId de la URL (puede venir como route param o query param)
-    this.versionId = this.route.snapshot.paramMap.get('versionId') || this.route.snapshot.queryParamMap.get('versionId') || '';
-    console.log('[DEBUG] versionId obtenido:', this.versionId);
-    // Obtener token JWT del localStorage para WebSocket
-    this.token = localStorage.getItem('access') || '';
-    console.log('[DEBUG] token obtenido:', this.token ? 'Token presente' : 'No hay token');
-    console.log('[DEBUG] Token (primeros 20 chars):', this.token ? this.token.substring(0, 20) + '...' : 'N/A');
 
-    if (this.diagramId) {
-      // Cargar miembros del diagrama
-      this.membersService.getDiagramMembers(this.diagramId).subscribe({
-        next: (resp: { members: { id: string; name: string; email?: string; avatarUrl?: string }[] }) => {
-          this.collabMembers = resp.members || [];
-          console.log('[Miembros] Miembros cargados:', this.collabMembers);
-        },
-        error: (err: unknown) => {
-          console.error('[Miembros] Error al cargar miembros:', err);
+    ngOnInit(): void {
+      console.log('[DEBUG] ngOnInit ejecutado');
+      // Obtener diagramId de la URL
+      this.diagramId = this.route.snapshot.paramMap.get('id') || '';
+      console.log('[DEBUG] diagramId obtenido:', this.diagramId);
+      // Obtener versionId de la URL (puede venir como route param o query param)
+      this.versionId = this.route.snapshot.paramMap.get('versionId') || this.route.snapshot.queryParamMap.get('versionId') || '';
+      console.log('[DEBUG] versionId obtenido:', this.versionId);
+      // Obtener token JWT del localStorage para WebSocket
+      this.token = localStorage.getItem('access') || '';
+      console.log('[DEBUG] token obtenido:', this.token ? 'Token presente' : 'No hay token');
+      console.log('[DEBUG] Token (primeros 20 chars):', this.token ? this.token.substring(0, 20) + '...' : 'N/A');
+
+      if (this.diagramId) {
+        // Cargar miembros del diagrama
+        this.membersService.getDiagramMembers(this.diagramId).subscribe({
+          next: (resp: { members: { id: string; name: string; email?: string; avatarUrl?: string }[] }) => {
+            // Al cargar los miembros, fusionar con el estado de conexión actual
+            this.updateCollabMembers(resp.members || []);
+            console.log('[Miembros] Miembros cargados:', this.collabMembers);
+          },
+          error: (err: unknown) => {
+            console.error('[Miembros] Error al cargar miembros:', err);
+          }
+        });
+        // Si hay versionId en la URL, redirigir a la ruta sin versionId para forzar siempre la última versión
+        if (this.versionId) {
+          console.log('[DEBUG] Redirigiendo a la ruta sin versionId para mostrar SIEMPRE la versión más reciente');
+          this.router.navigate(['/diagram/show', this.diagramId]);
+          // No continuar, la recarga hará que se muestre la última versión
+          return;
         }
-      });
-      // Si hay versionId en la URL, redirigir a la ruta sin versionId para forzar siempre la última versión
-      if (this.versionId) {
-        console.log('[DEBUG] Redirigiendo a la ruta sin versionId para mostrar SIEMPRE la versión más reciente');
-        this.router.navigate(['/diagram/show', this.diagramId]);
-        // No continuar, la recarga hará que se muestre la última versión
-        return;
+        // Si no hay versionId, cargar la última versión
+        console.log('[DEBUG] Cargando versión más reciente');
+        this.loadLatestVersion();
+      } else {
+        console.warn('[DEBUG] No hay diagramId disponible');
       }
-      // Si no hay versionId, cargar la última versión
-      console.log('[DEBUG] Cargando versión más reciente');
-      this.loadLatestVersion();
-    } else {
-      console.warn('[DEBUG] No hay diagramId disponible');
     }
-  }
+
+    // Escuchar cambios de miembros conectados en tiempo real
+    // (esto debe llamarse desde el componente de colaboración o WebSocket)
+    // Por ejemplo, puedes llamar a este método cuando recibas un evento de conexión/desconexión:
+    // this.onActiveMembersChanged(['id1', 'id2', ...]);
+    // Aquí se asume que el componente colaborativo emite un evento o callback con los IDs conectados
+    // Puedes adaptar esto según tu integración WebSocket
+    // Ejemplo de uso: this.onActiveMembersChanged(['user1', 'user2']);
+    // Llama a este método cada vez que cambie la lista de conectados
+    // (puedes exponerlo como callback para el servicio de colaboración)
+    onActiveMembersChanged(activeIds: string[]) {
+      console.log('[DiagramShow] 👥 onActiveMembersChanged llamado con:', activeIds);
+      console.log('[DiagramShow] 👥 Miembros actuales:', this.collabMembers.map(m => ({ id: m.id, name: m.name })));
+      
+      this.activeMemberIds = new Set(activeIds);
+      console.log('[DiagramShow] 👥 Set de IDs activos:', this.activeMemberIds);
+      
+      // Actualizar la propiedad isActive en collabMembers
+      const updatedMembers = this.collabMembers.map(m => {
+        const isActive = this.activeMemberIds.has(m.id.toString());
+        console.log('[DiagramShow] 👥 Miembro', m.name, '(ID:', m.id, ') - Activo:', isActive);
+        return { ...m, isActive };
+      });
+      this.collabMembers = updatedMembers;
+      console.log('[DiagramShow] 👥 Lista actualizada:', this.collabMembers.map(m => ({ id: m.id, name: m.name, isActive: m.isActive })));
+    }
+
+    // Fusiona la lista de miembros del backend con el estado de conexión actual
+    updateCollabMembers(members: { id: string; name: string; email?: string; avatarUrl?: string }[]) {
+      this.collabMembers = members.map(m => ({ ...m, isActive: this.activeMemberIds.has(m.id) }));
+    }
 
   // Cargar una versión específica
   private loadSpecificVersion(versionId: string): void {
