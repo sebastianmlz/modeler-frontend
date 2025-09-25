@@ -9,12 +9,23 @@
  * @property payload Objeto con los datos específicos del evento
  * @property timestamp (opcional) Marca de tiempo del evento
  */
+export type DiagramCollabEventType =
+  | 'add_class'
+  | 'update_class'
+  | 'move_element'
+  | 'delete_class'
+  | 'add_relation'
+  | 'update_relation'
+  | 'delete_relation'
+  | 'presence';
+
 export interface DiagramCollabEvent {
-  type: 'add_class' | 'update_class' | 'move_element' | 'delete_class' | 'add_relation' | 'update_relation' | 'delete_relation';
+  type: DiagramCollabEventType;
   diagramId: string;
   userId?: string;
   payload: any;
   timestamp?: string;
+  senderId?: string;
 }
 
 // Ejemplos de payloads para cada tipo de evento:

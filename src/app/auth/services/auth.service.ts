@@ -17,7 +17,17 @@ export class AuthService {
         localStorage.setItem('refresh', res.refresh);
         this.getProfile().subscribe(profile => {
           localStorage.setItem('user', JSON.stringify(profile));
-          this.router.navigate(['/dashboard']);
+          
+          // Verificar si hay una URL de redirección guardada
+          const redirectUrl = localStorage.getItem('redirectUrl');
+          if (redirectUrl) {
+            console.log('[AUTH] Redirigiendo a URL guardada:', redirectUrl);
+            localStorage.removeItem('redirectUrl'); // Limpiar la URL guardada
+            this.router.navigateByUrl(redirectUrl);
+          } else {
+            console.log('[AUTH] No hay URL de redirección, yendo al dashboard');
+            this.router.navigate(['/dashboard']);
+          }
         });
       })
     );

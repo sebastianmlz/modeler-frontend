@@ -11,7 +11,6 @@ export interface UMLRelation {
   name?: string; // Nombre de la relación (opcional)
   associationClassId?: string; // Solo para NtoN: id de la clase intermedia generada
 }
-
 // NOTA: Para 'AsociaciónNtoN', al crear la relación se debe crear automáticamente una clase intermedia
 // con dos atributos PK (referencias a las PK de las clases padres) y conectarla visualmente.
 
@@ -49,6 +48,7 @@ export const ATTRIBUTE_TYPES = [
 
 
 import { Component, OnInit, ViewChild, OnDestroy, AfterViewInit } from '@angular/core';
+import { CollabMember } from './collab-member.model';
 import { DiagramCollabEvent } from '../diagram-collab-event.model';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DiagramVersionService } from './diagram-version.service';
@@ -57,6 +57,7 @@ import { FormsModule } from '@angular/forms';
 import { ShowSidebarComponent } from './show-sidebar/show-sidebar.component';
 import { DiagramModule, NodeModel, ConnectorModel, DiagramComponent, NodeConstraints } from '@syncfusion/ej2-angular-diagrams';
 import { DiagramCollaborationComponent } from './diagram-collaboration/diagram-collaboration.component';
+import { MembersService } from './members.service';
 
 // ...existing code...
 
@@ -68,6 +69,8 @@ import { DiagramCollaborationComponent } from './diagram-collaboration/diagram-c
   styleUrl: './diagram-show.component.css'
 })
 export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
+    // Miembros colaborativos conectados en tiempo real
+    collabMembers: any[] = [];
   @ViewChild('collabComp', { static: false }) collabComp!: DiagramCollaborationComponent;
 
   // Maneja cambios de estado de la colaboración (opcional: puedes mostrar estado en UI si lo deseas)
@@ -81,6 +84,15 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!event || !event.type) {
       console.error('[COLABORACIÓN] ❌ Evento inválido recibido:', event);
       return;
+    }
+    
+    // FILTRAR NUESTROS PROPIOS EVENTOS PARA EVITAR CICLOS
+    if ((event as any).senderId && this.collabComp) {
+      const ourWindowId = (this.collabComp as any).collaboration?.windowId;
+      if (ourWindowId && (event as any).senderId === ourWindowId) {
+        console.log('[COLABORACIÓN] 🚫 IGNORANDO NUESTRO PROPIO EVENTO - senderId:', (event as any).senderId);
+        return;
+      }
     }
     
     console.log('[COLABORACIÓN] 🔄 Procesando evento tipo:', event.type);
@@ -219,64 +231,138 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       }
       case 'delete_relation': {
         const relationId = event.payload.relationId;
+        console.log('[COLABORACIÓN] 📥 RECIBIDO DELETE_RELATION');
+        console.log('[COLABORACIÓN] 📥 RelationId:', relationId);
+        
+        // Activar bandera para evitar eventos circulares
+        console.log('[COLABORACIÓN] 🔒 Activando flag isApplyingCollabChange');
+        this.isApplyingCollabChange = true;
+        
+        // Actualizar datos locales
         this.umlRelations = this.umlRelations.filter(rel => rel.id !== relationId);
         this.connectors = this.connectors.filter(c => c.id !== relationId);
+        console.log('[COLABORACIÓN] ✅ Arrays locales actualizados');
+        
         if (this.diagramComponent) {
           const connector = this.diagramComponent.getConnectorObject(relationId);
           if (connector) {
+            console.log('[COLABORACIÓN] 🎨 Eliminando conector del diagrama:', relationId);
             this.diagramComponent.remove(connector);
             
             // Actualizar referencias de arrays para sincronización
             this.diagramComponent.connectors = [...this.connectors];
-            if (this.diagramComponent.nodes) {
-              this.diagramComponent.nodes = [...this.nodes];
-            }
+            this.diagramComponent.nodes = [...this.nodes];
             
+            console.log('[COLABORACIÓN] 🎨 Actualizando diagrama visual...');
             this.diagramComponent.dataBind();
             this.diagramComponent.refresh();
+            console.log('[COLABORACIÓN] ✅ Diagrama actualizado visualmente');
+          } else {
+            console.warn('[COLABORACIÓN] ⚠️ Conector no encontrado en diagrama:', relationId);
           }
         }
+        
+        // Resetear selección si se eliminó la relación seleccionada
+        if (this.selectedUMLRelationId === relationId) {
+          this.selectedUMLRelationId = null;
+          console.log('[COLABORACIÓN] ✅ Selección de relación reseteada');
+        }
+        
+        // Desactivar bandera
+        setTimeout(() => {
+          this.isApplyingCollabChange = false;
+          console.log('[COLABORACIÓN] Bandera isApplyingCollabChange desactivada');
+        }, 100);
+        
         break;
       }
       case 'update_class': {
+        console.log('[COLABORACIÓN] 📥 RECIBIDO UPDATE_CLASS');
         const { classId, changes } = event.payload;
-        // Actualizar datos de la clase
-        const idx = this.umlClasses.findIndex(c => c.id === classId);
-        if (idx !== -1) {
-          this.umlClasses[idx] = { ...this.umlClasses[idx], ...changes };
-        }
-        // Actualizar nodo visual
-        const nodeIdx = this.nodes.findIndex(n => n.id === classId);
-        if (nodeIdx !== -1) {
-          let content = this.umlClasses[idx].name;
-          if (this.umlClasses[idx].attributes && this.umlClasses[idx].attributes.length > 0) {
-            content += '\n' + '─'.repeat(Math.max(this.umlClasses[idx].name.length, 10)) + '\n';
-            content += this.umlClasses[idx].attributes.map((attr: any) => {
-              let line = attr.name + ': ' + attr.typeName;
-              if (attr.isPrimaryKey) line += ' [PK]';
-              return line;
-            }).join('\n');
+        console.log('[COLABORACIÓN] 📥 ClassId:', classId);
+        console.log('[COLABORACIÓN] 📥 Changes:', changes);
+        
+        // Activar bandera para evitar eventos circulares
+        console.log('[COLABORACIÓN] 🔒 Activando flag isApplyingCollabChange');
+        this.isApplyingCollabChange = true;
+        
+        try {
+          // Actualizar datos de la clase
+          const idx = this.umlClasses.findIndex(c => c.id === classId);
+          if (idx !== -1) {
+            console.log('[COLABORACIÓN] 📝 Clase encontrada en índice:', idx);
+            console.log('[COLABORACIÓN] 📝 Clase antes:', this.umlClasses[idx]);
+            this.umlClasses[idx] = { ...this.umlClasses[idx], ...changes };
+            console.log('[COLABORACIÓN] 📝 Clase después:', this.umlClasses[idx]);
+          } else {
+            console.warn('[COLABORACIÓN] ⚠️ Clase no encontrada con ID:', classId);
+            break;
           }
-          const lines = content.split('\n');
-          const maxLineLength = Math.max(...lines.map((line: string) => line.length));
-          const newWidth = Math.max(150, maxLineLength * 8 + 20);
-          const newHeight = Math.max(80, lines.length * 20 + 20);
-          this.nodes[nodeIdx] = {
-            ...this.nodes[nodeIdx],
-            annotations: [{ content }],
-            width: newWidth,
-            height: newHeight
-          };
-          if (this.diagramComponent) {
-            const nodeObj = this.diagramComponent.getNodeObject(classId);
-            if (nodeObj) {
-              this.diagramComponent.remove(nodeObj);
+          
+          // Actualizar nodo visual
+          const nodeIdx = this.nodes.findIndex(n => n.id === classId);
+          if (nodeIdx !== -1) {
+            console.log('[COLABORACIÓN] 🎨 Nodo encontrado en índice:', nodeIdx);
+            console.log('[COLABORACIÓN] 🎨 Nodo antes:', this.nodes[nodeIdx]);
+            
+            // Generar contenido actualizado del nodo
+            let content = this.umlClasses[idx].name;
+            if (this.umlClasses[idx].attributes && this.umlClasses[idx].attributes.length > 0) {
+              content += '\n' + '─'.repeat(Math.max(this.umlClasses[idx].name.length, 10)) + '\n';
+              content += this.umlClasses[idx].attributes.map((attr: any) => {
+                let line = attr.name + ': ' + attr.typeName;
+                if (attr.isPrimaryKey) line += ' [PK]';
+                return line;
+              }).join('\n');
             }
-            this.diagramComponent.add(this.nodes[nodeIdx]);
-            this.diagramComponent.dataBind();
-            this.diagramComponent.refresh();
+            
+            const lines = content.split('\n');
+            const maxLineLength = Math.max(...lines.map((line: string) => line.length));
+            const newWidth = Math.max(150, maxLineLength * 8 + 20);
+            const newHeight = Math.max(80, lines.length * 20 + 20);
+            
+            this.nodes[nodeIdx] = {
+              ...this.nodes[nodeIdx],
+              annotations: [{ content }],
+              width: newWidth,
+              height: newHeight
+            };
+            
+            console.log('[COLABORACIÓN] 🎨 Nodo después:', this.nodes[nodeIdx]);
+            
+            if (this.diagramComponent) {
+              const nodeObj = this.diagramComponent.getNodeObject(classId);
+              if (nodeObj) {
+                console.log('[COLABORACIÓN] 🎨 Eliminando nodo anterior del diagrama');
+                this.diagramComponent.remove(nodeObj);
+              }
+              console.log('[COLABORACIÓN] 🎨 Agregando nodo actualizado al diagrama');
+              this.diagramComponent.add(this.nodes[nodeIdx]);
+              
+              // Actualizar referencias de arrays para sincronización
+              this.diagramComponent.nodes = [...this.nodes];
+              this.diagramComponent.connectors = [...this.connectors];
+              
+              console.log('[COLABORACIÓN] 🎨 Actualizando diagrama visual...');
+              this.diagramComponent.dataBind();
+              this.diagramComponent.refresh();
+              console.log('[COLABORACIÓN] ✅ Diagrama actualizado visualmente');
+            }
+          } else {
+            console.warn('[COLABORACIÓN] ⚠️ Nodo no encontrado con ID:', classId);
           }
+          
+          console.log('[COLABORACIÓN] ✅ UPDATE_CLASS procesado exitosamente');
+        } catch (error) {
+          console.error('[COLABORACIÓN] 💥 Error procesando UPDATE_CLASS:', error);
+        } finally {
+          // Desactivar bandera después de un pequeño delay
+          setTimeout(() => {
+            this.isApplyingCollabChange = false;
+            console.log('[COLABORACIÓN] 🔓 Bandera isApplyingCollabChange desactivada');
+          }, 100);
         }
+        
         break;
       }
       case 'move_element': {
@@ -382,11 +468,98 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
           console.error('[Colaboración] Error al aplicar movimiento:', error);
         }
         
-        // Desactivar bandera después de un pequeño delay
+        // Desactivar bandera después de un delay más largo para evitar ciclos
         setTimeout(() => {
           this.isApplyingCollabChange = false;
           console.log('[Colaboración] Bandera isApplyingCollabChange desactivada');
-        }, 200);
+        }, 300); // Reducido a 300ms para mejor responsividad
+        
+        break;
+      }
+      case 'delete_class': {
+        console.log('[COLABORACIÓN] 📥 RECIBIDO DELETE_CLASS');
+        const classId = event.payload.classId;
+        console.log('[COLABORACIÓN] 📥 ClassId a eliminar:', classId);
+        
+        // Activar bandera para evitar eventos circulares
+        console.log('[COLABORACIÓN] 🔒 Activando flag isApplyingCollabChange');
+        this.isApplyingCollabChange = true;
+        
+        try {
+          // 1. Eliminar relaciones que usan esta clase
+          console.log('[COLABORACIÓN] 🗑️ Eliminando relaciones que usan la clase...');
+          const relationsToDelete = this.umlRelations.filter(
+            rel => rel.sourceId === classId || rel.targetId === classId
+          );
+          
+          console.log('[COLABORACIÓN] 🗑️ Relaciones a eliminar:', relationsToDelete.length);
+          relationsToDelete.forEach(rel => {
+            console.log('[COLABORACIÓN] 🗑️ Eliminando relación:', rel.id);
+            
+            // Eliminar de array UML
+            this.umlRelations = this.umlRelations.filter(r => r.id !== rel.id);
+            
+            // Eliminar conector visual
+            this.connectors = this.connectors.filter(c => c.id !== rel.id);
+            
+            // Eliminar del diagrama si existe
+            if (this.diagramComponent) {
+              const connector = this.diagramComponent.getConnectorObject(rel.id);
+              if (connector) {
+                this.diagramComponent.remove(connector);
+              }
+            }
+          });
+          
+          // 2. Eliminar la clase del array UML
+          console.log('[COLABORACIÓN] 🗑️ Eliminando clase del array UML...');
+          const classIndex = this.umlClasses.findIndex(c => c.id === classId);
+          if (classIndex !== -1) {
+            console.log('[COLABORACIÓN] 🗑️ Clase eliminada:', this.umlClasses[classIndex]);
+            this.umlClasses.splice(classIndex, 1);
+          }
+          
+          // 3. Eliminar nodo visual del diagrama
+          console.log('[COLABORACIÓN] 🗑️ Eliminando nodo visual...');
+          const nodeIndex = this.nodes.findIndex(n => n.id === classId);
+          if (nodeIndex !== -1) {
+            console.log('[COLABORACIÓN] 🗑️ Nodo eliminado:', this.nodes[nodeIndex]);
+            this.nodes.splice(nodeIndex, 1);
+          }
+          
+          // 4. Eliminar del diagrama visual
+          if (this.diagramComponent) {
+            const nodeObj = this.diagramComponent.getNodeObject(classId);
+            if (nodeObj) {
+              console.log('[COLABORACIÓN] 🎨 Eliminando nodo del diagrama visual');
+              this.diagramComponent.remove(nodeObj);
+            }
+            
+            // Actualizar referencias de arrays para sincronización
+            this.diagramComponent.nodes = [...this.nodes];
+            this.diagramComponent.connectors = [...this.connectors];
+            
+            console.log('[COLABORACIÓN] 🎨 Actualizando diagrama visual...');
+            this.diagramComponent.dataBind();
+            this.diagramComponent.refresh();
+          }
+          
+          // 5. Limpiar selección si era la clase eliminada
+          if (this.selectedUMLClass?.id === classId) {
+            this.selectedUMLClass = null;
+            console.log('[COLABORACIÓN] 🧹 Selección de clase limpiada');
+          }
+          
+          console.log('[COLABORACIÓN] ✅ DELETE_CLASS procesado exitosamente');
+        } catch (error) {
+          console.error('[COLABORACIÓN] 💥 Error procesando DELETE_CLASS:', error);
+        } finally {
+          // Desactivar bandera después de un pequeño delay
+          setTimeout(() => {
+            this.isApplyingCollabChange = false;
+            console.log('[COLABORACIÓN] 🔓 Bandera isApplyingCollabChange desactivada');
+          }, 100);
+        }
         
         break;
       }
@@ -394,9 +567,10 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
         console.warn('[Colaboración] Tipo de evento no manejado:', event?.type);
     }
     
-    // Guardar automáticamente después de cada cambio colaborativo
-    console.log('[Colaboración] Llamando a auto-guardado');
-    this.autoSaveDiagram();
+    // REMOVED: Auto-guardado colaborativo para evitar race conditions
+    // Solo la ventana que origina el cambio debe auto-guardar
+    console.log('[Colaboración] ✅ Evento colaborativo procesado sin auto-guardado');
+    // this.autoSaveDiagram();
   }
   // Maneja la selección de nodos o relaciones en el canvas
   onSelectionChange(event: any) {
@@ -616,7 +790,10 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Debounce para manejar cambios de posición
   private positionChangeTimeout: any = null;
+  
   private handlePositionChangeDebounced(element: any) {
+    console.log('[MOVIMIENTO] 📍 Procesando cambio de posición debounced:', element.id);
+    
     if (this.isApplyingCollabChange) {
       console.log('[MOVIMIENTO] Ignorando propertyChange - aplicando cambio colaborativo');
       return;
@@ -651,6 +828,10 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     
     console.log('[MOVIMIENTO] Datos locales actualizados');
+    
+    // Auto-guardar los cambios locales
+    console.log('[MOVIMIENTO] 💾 Guardando cambios locales automáticamente');
+    this.autoSaveDiagram();
   }
   
   private sendMoveEvent(elementId: string, x: number, y: number) {
@@ -705,51 +886,8 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
   
   // Verificar cambios de posición
   private checkPositionChanges() {
-    if (this.isApplyingCollabChange || !this.diagramComponent) {
-      return;
-    }
-    
-    try {
-      // Revisar cada nodo en el diagrama
-      if (this.diagramComponent.nodes) {
-        this.diagramComponent.nodes.forEach((diagramNode: any) => {
-          const nodeId = diagramNode.id;
-          const currentX = diagramNode.offsetX || 0;
-          const currentY = diagramNode.offsetY || 0;
-          
-          // Verificar si es uno de nuestros nodos
-          const isOurNode = this.nodes.find(n => n.id === nodeId);
-          if (!isOurNode) return;
-          
-          // Obtener última posición conocida
-          const lastPos = this.lastKnownPositions.get(nodeId);
-          
-          if (lastPos) {
-            // Verificar si hubo cambio significativo (>2 píxeles para evitar micro-movimientos)
-            const deltaX = Math.abs(currentX - lastPos.x);
-            const deltaY = Math.abs(currentY - lastPos.y);
-            
-            if (deltaX > 2 || deltaY > 2) {
-              console.log(`🔄 [POSITION-MONITOR] ✅ Cambio detectado en ${nodeId}: (${lastPos.x}, ${lastPos.y}) → (${currentX}, ${currentY})`);
-              
-              // Actualizar datos locales
-              this.updateLocalPosition(nodeId, currentX, currentY);
-              
-              // Enviar evento colaborativo
-              this.sendMoveEvent(nodeId, currentX, currentY);
-              
-              // Actualizar posición conocida
-              this.lastKnownPositions.set(nodeId, { x: currentX, y: currentY });
-            }
-          } else {
-            // Primera vez que vemos este nodo, guardar posición inicial
-            this.lastKnownPositions.set(nodeId, { x: currentX, y: currentY });
-          }
-        });
-      }
-    } catch (error) {
-      console.error('🔄 [POSITION-MONITOR] Error en monitoreo:', error);
-    }
+    // Monitor deshabilitado. No hacer nada.
+    return;
   }
   
   // Actualizar posiciones conocidas cuando se cargan nodos
@@ -789,24 +927,82 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Actualiza la clase seleccionada en el canvas solo cuando se presiona el botón
   updateSelectedClassOnCanvas() {
-    console.log('Botón Actualizar clase presionado');
-    if (this.selectedUMLClass) {
-      console.log('Clase seleccionada:', this.selectedUMLClass);
-      this.updateNodeContent(this.selectedUMLClass);
-      // Emitir evento colaborativo de edición de clase
-      if (this.collabComp && this.collabComp.sendEvent) {
-        this.collabComp.sendEvent({
-          type: 'update_class',
-          diagramId: this.diagramId,
-          payload: {
-            classId: this.selectedUMLClass.id,
-            changes: { ...this.selectedUMLClass }
-          }
-        });
-      }
-    } else {
-      console.log('No hay clase seleccionada');
+    console.log('[ACTUALIZAR CLASE] 🔄 INICIANDO ACTUALIZACIÓN LOCAL');
+    console.log('[ACTUALIZAR CLASE] 🔄 Botón Actualizar clase presionado');
+    
+    if (!this.selectedUMLClass) {
+      console.warn('[ACTUALIZAR CLASE] ⚠️ No hay clase seleccionada');
+      return;
     }
+    
+    // Crear una copia de la clase antes de proceder para evitar referencias null
+    const classToUpdate = { ...this.selectedUMLClass };
+    console.log('[ACTUALIZAR CLASE] 📝 Clase a actualizar (copia):', classToUpdate);
+    console.log('[ACTUALIZAR CLASE] 📝 ID de la clase:', classToUpdate.id);
+    console.log('[ACTUALIZAR CLASE] 📝 Nombre de la clase:', classToUpdate.name);
+    console.log('[ACTUALIZAR CLASE] 📝 Atributos:', classToUpdate.attributes);
+    
+    // Validar que la clase tenga ID válido
+    if (!classToUpdate.id) {
+      console.error('[ACTUALIZAR CLASE] ❌ La clase no tiene ID válido');
+      return;
+    }
+    
+    // Actualizar contenido visual del nodo
+    this.updateNodeContent(classToUpdate);
+    console.log('[ACTUALIZAR CLASE] 🎨 Contenido visual actualizado');
+    
+    // Auto-guardar cambios localmente
+    console.log('[ACTUALIZAR CLASE] 💾 Guardando cambios de clase automáticamente');
+    this.autoSaveDiagram();
+    
+    // Emitir evento colaborativo de edición de clase
+    console.log('[ACTUALIZAR CLASE] 📤 VERIFICANDO COMPONENTE COLABORATIVO');
+    console.log('[ACTUALIZAR CLASE] 📤 collabComp existe:', !!this.collabComp);
+    console.log('[ACTUALIZAR CLASE] 📤 diagramId existe:', !!this.diagramId);
+    console.log('[ACTUALIZAR CLASE] 📤 diagramId valor:', this.diagramId);
+    
+    if (!this.collabComp) {
+      console.error('[ACTUALIZAR CLASE] ❌ Componente colaborativo no está disponible');
+      return;
+    }
+    
+    if (!this.diagramId) {
+      console.error('[ACTUALIZAR CLASE] ❌ DiagramId no está disponible');
+      return;
+    }
+    
+    console.log('[ACTUALIZAR CLASE] 📤 sendEvent existe:', !!this.collabComp.sendEvent);
+    
+    if (!this.collabComp.sendEvent) {
+      console.error('[ACTUALIZAR CLASE] ❌ Método sendEvent no está disponible');
+      return;
+    }
+    
+    console.log('[ACTUALIZAR CLASE] 📤 PREPARANDO EVENTO COLABORATIVO');
+    
+    const eventData: DiagramCollabEvent = {
+      type: 'update_class' as const,
+      diagramId: this.diagramId,
+      payload: {
+        classId: classToUpdate.id,
+        changes: { ...classToUpdate }
+      }
+    };
+    
+    console.log('[ACTUALIZAR CLASE] 📤 Datos del evento:', eventData);
+    console.log('[ACTUALIZAR CLASE] 📤 DiagramId:', this.diagramId);
+    console.log('[ACTUALIZAR CLASE] 📤 ClassId:', classToUpdate.id);
+    
+    try {
+      console.log('[ACTUALIZAR CLASE] � ENVIANDO EVENTO COLABORATIVO...');
+      this.collabComp.sendEvent(eventData);
+      console.log('[ACTUALIZAR CLASE] ✅ Evento colaborativo enviado exitosamente');
+    } catch (error) {
+      console.error('[ACTUALIZAR CLASE] 💥 Error enviando evento colaborativo:', error);
+    }
+    
+    console.log('[ACTUALIZAR CLASE] ✅ ACTUALIZACIÓN LOCAL COMPLETADA');
   }
   // Array real de clases UML
   umlClasses: UMLClass[] = [];
@@ -857,6 +1053,7 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('umlDiagram', { static: false }) diagramComponent!: DiagramComponent;
   diagramId: string = '';
   versionId: string = '';
+  token: string = '';
   savingVersion: boolean = false;
   saveError: string = '';
   // Bandera para evitar eventos circulares en colaboración
@@ -962,6 +1159,12 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       const message = 'Auto-guardado por cambio colaborativo';
       const diagramId = this.diagramId || '';
       
+      // Log detallado de lo que se enviará al backend
+      console.log('[Auto-guardado][DEBUG] Payload enviado al backend:', {
+        diagramId,
+        snapshot,
+        message
+      });
       this.versionService.createVersion(diagramId, snapshot, message).subscribe({
         next: () => {
           console.log('[Auto-guardado] Cambios colaborativos guardados');
@@ -997,7 +1200,8 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
   constructor(
     private route: ActivatedRoute,
     private versionService: DiagramVersionService,
-    private router: Router
+    private router: Router,
+    private membersService: MembersService
   ) {}
   // Redirige a diagram-export con el snapshot actual
   exportSpringBootBackend() {
@@ -1013,13 +1217,37 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnInit(): void {
     console.log('[DEBUG] ngOnInit ejecutado');
+    // Obtener diagramId de la URL
     this.diagramId = this.route.snapshot.paramMap.get('id') || '';
     console.log('[DEBUG] diagramId obtenido:', this.diagramId);
-    
-    // SIEMPRE cargar la versión más reciente, ignorar cualquier versionId en la URL
-    // Esto asegura que después de un auto-guardado, al recargar se vea la versión nueva
+    // Obtener versionId de la URL (puede venir como route param o query param)
+    this.versionId = this.route.snapshot.paramMap.get('versionId') || this.route.snapshot.queryParamMap.get('versionId') || '';
+    console.log('[DEBUG] versionId obtenido:', this.versionId);
+    // Obtener token JWT del localStorage para WebSocket
+    this.token = localStorage.getItem('access') || '';
+    console.log('[DEBUG] token obtenido:', this.token ? 'Token presente' : 'No hay token');
+    console.log('[DEBUG] Token (primeros 20 chars):', this.token ? this.token.substring(0, 20) + '...' : 'N/A');
+
     if (this.diagramId) {
-      console.log('[DEBUG] Cargando SIEMPRE versión más reciente del diagrama:', this.diagramId);
+      // Cargar miembros del diagrama
+      this.membersService.getDiagramMembers(this.diagramId).subscribe({
+        next: (resp: { members: { id: string; name: string; email?: string; avatarUrl?: string }[] }) => {
+          this.collabMembers = resp.members || [];
+          console.log('[Miembros] Miembros cargados:', this.collabMembers);
+        },
+        error: (err: unknown) => {
+          console.error('[Miembros] Error al cargar miembros:', err);
+        }
+      });
+      // Si hay versionId en la URL, redirigir a la ruta sin versionId para forzar siempre la última versión
+      if (this.versionId) {
+        console.log('[DEBUG] Redirigiendo a la ruta sin versionId para mostrar SIEMPRE la versión más reciente');
+        this.router.navigate(['/diagram/show', this.diagramId]);
+        // No continuar, la recarga hará que se muestre la última versión
+        return;
+      }
+      // Si no hay versionId, cargar la última versión
+      console.log('[DEBUG] Cargando versión más reciente');
       this.loadLatestVersion();
     } else {
       console.warn('[DEBUG] No hay diagramId disponible');
@@ -1254,6 +1482,10 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
         y: newClass.position.y 
       });
     }
+    // Auto-guardar cambios localmente
+    console.log('[NUEVA CLASE] 💾 Guardando nueva clase automáticamente');
+    this.autoSaveDiagram();
+    
     // Emitir evento colaborativo
     if (this.collabComp && this.collabComp.sendEvent) {
       this.collabComp.sendEvent({
@@ -1349,6 +1581,10 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       this.diagramComponent.refresh();
     }
     
+    // Auto-guardar cambios localmente
+    console.log('[NUEVA RELACIÓN] 💾 Guardando nueva relación automáticamente');
+    this.autoSaveDiagram();
+    
     // Emitir evento colaborativo de agregar relación
     if (this.collabComp && this.collabComp.sendEvent) {
       this.collabComp.sendEvent({
@@ -1387,6 +1623,10 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     }
     
+    // Auto-guardar cambios localmente
+    console.log('[ELIMINAR CLASE] 💾 Guardando eliminación automáticamente');
+    this.autoSaveDiagram();
+    
     // Emitir evento colaborativo de eliminar clase
     if (this.collabComp && this.collabComp.sendEvent) {
       this.collabComp.sendEvent({
@@ -1401,20 +1641,19 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
   deleteSelectedRelation() {
     if (!this.selectedUMLRelationId) return;
     
-    // Emitir evento colaborativo de eliminar relación
-    if (this.collabComp && this.collabComp.sendEvent) {
-      this.collabComp.sendEvent({
-        type: 'delete_relation',
-        diagramId: this.diagramId,
-        payload: { relationId: this.selectedUMLRelationId }
-      });
-    }
+    console.log('[ELIMINAR RELACIÓN] 🗑️ INICIANDO ELIMINACIÓN LOCAL');
+    console.log('[ELIMINAR RELACIÓN] 🗑️ RelationId:', this.selectedUMLRelationId);
     
-    this.umlRelations = this.umlRelations.filter(rel => rel.id !== this.selectedUMLRelationId);
-    this.connectors = this.connectors.filter(c => c.id !== this.selectedUMLRelationId);
+    const relationToDelete = this.selectedUMLRelationId;
+    
+    this.umlRelations = this.umlRelations.filter(rel => rel.id !== relationToDelete);
+    this.connectors = this.connectors.filter(c => c.id !== relationToDelete);
+    console.log('[ELIMINAR RELACIÓN] ✅ Arrays locales actualizados');
+    
     if (this.diagramComponent) {
-      const connector = this.diagramComponent.getConnectorObject(this.selectedUMLRelationId);
+      const connector = this.diagramComponent.getConnectorObject(relationToDelete);
       if (connector) {
+        console.log('[ELIMINAR RELACIÓN] 🎨 Eliminando conector del diagrama');
         this.diagramComponent.remove(connector);
         
         // Actualizar referencias de arrays para sincronización
@@ -1422,9 +1661,128 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
         
         this.diagramComponent.dataBind();
         this.diagramComponent.refresh();
+        console.log('[ELIMINAR RELACIÓN] ✅ Diagrama actualizado visualmente');
+      } else {
+        console.warn('[ELIMINAR RELACIÓN] ⚠️ Conector no encontrado en diagrama');
       }
     }
+    
+    // Auto-guardar cambios localmente
+    console.log('[ELIMINAR RELACIÓN] 💾 Guardando eliminación automáticamente');
+    this.autoSaveDiagram();
+    
+    // Emitir evento colaborativo de eliminar relación
+    console.log('[ELIMINAR RELACIÓN] 📤 ENVIANDO EVENTO COLABORATIVO');
+    if (this.collabComp && this.collabComp.sendEvent) {
+      this.collabComp.sendEvent({
+        type: 'delete_relation',
+        diagramId: this.diagramId,
+        payload: { relationId: relationToDelete }
+      });
+      console.log('[ELIMINAR RELACIÓN] ✅ Evento colaborativo enviado');
+    } else {
+      console.error('[ELIMINAR RELACIÓN] ❌ No se pudo enviar evento colaborativo');
+    }
+    
     this.selectedUMLRelationId = null;
+    console.log('[ELIMINAR RELACIÓN] ✅ ELIMINACIÓN LOCAL COMPLETADA');
+  }
+
+  // Eliminar clase seleccionada con sincronización colaborativa
+  deleteSelectedClass() {
+    if (!this.selectedUMLClass) {
+      console.warn('[ELIMINAR CLASE] ⚠️ No hay clase seleccionada');
+      return;
+    }
+    
+    console.log('[ELIMINAR CLASE] 🗑️ INICIANDO ELIMINACIÓN LOCAL');
+    console.log('[ELIMINAR CLASE] 🗑️ ClassId:', this.selectedUMLClass.id);
+    console.log('[ELIMINAR CLASE] 🗑️ Nombre de la clase:', this.selectedUMLClass.name);
+    
+    const classToDelete = this.selectedUMLClass.id;
+    
+    try {
+      // 1. Eliminar relaciones que usan esta clase
+      console.log('[ELIMINAR CLASE] 🗑️ Eliminando relaciones relacionadas...');
+      const relationsToDelete = this.umlRelations.filter(
+        rel => rel.sourceId === classToDelete || rel.targetId === classToDelete
+      );
+      
+      console.log('[ELIMINAR CLASE] 🗑️ Relaciones a eliminar:', relationsToDelete.length);
+      relationsToDelete.forEach(rel => {
+        console.log('[ELIMINAR CLASE] 🗑️ Eliminando relación:', rel.id);
+        
+        // Eliminar de arrays locales
+        this.umlRelations = this.umlRelations.filter(r => r.id !== rel.id);
+        this.connectors = this.connectors.filter(c => c.id !== rel.id);
+        
+        // Eliminar del diagrama visual
+        if (this.diagramComponent) {
+          const connector = this.diagramComponent.getConnectorObject(rel.id);
+          if (connector) {
+            this.diagramComponent.remove(connector);
+          }
+        }
+      });
+      
+      // 2. Eliminar la clase del array UML
+      console.log('[ELIMINAR CLASE] 🗑️ Eliminando clase del array UML...');
+      const classIndex = this.umlClasses.findIndex(c => c.id === classToDelete);
+      if (classIndex !== -1) {
+        console.log('[ELIMINAR CLASE] 🗑️ Clase eliminada:', this.umlClasses[classIndex]);
+        this.umlClasses.splice(classIndex, 1);
+      }
+      
+      // 3. Eliminar nodo visual
+      console.log('[ELIMINAR CLASE] 🗑️ Eliminando nodo visual...');
+      const nodeIndex = this.nodes.findIndex(n => n.id === classToDelete);
+      if (nodeIndex !== -1) {
+        console.log('[ELIMINAR CLASE] 🗑️ Nodo eliminado:', this.nodes[nodeIndex]);
+        this.nodes.splice(nodeIndex, 1);
+      }
+      
+      // 4. Eliminar del diagrama visual
+      if (this.diagramComponent) {
+        const nodeObj = this.diagramComponent.getNodeObject(classToDelete);
+        if (nodeObj) {
+          console.log('[ELIMINAR CLASE] 🎨 Eliminando nodo del diagrama visual');
+          this.diagramComponent.remove(nodeObj);
+        }
+        
+        // Actualizar referencias de arrays para sincronización
+        this.diagramComponent.nodes = [...this.nodes];
+        this.diagramComponent.connectors = [...this.connectors];
+        
+        console.log('[ELIMINAR CLASE] 🎨 Actualizando diagrama visual...');
+        this.diagramComponent.dataBind();
+        this.diagramComponent.refresh();
+        console.log('[ELIMINAR CLASE] ✅ Diagrama actualizado visualmente');
+      }
+      
+      // 5. Auto-guardar cambios localmente
+      console.log('[ELIMINAR CLASE] 💾 Guardando eliminación automáticamente');
+      this.autoSaveDiagram();
+      
+      // 6. Emitir evento colaborativo
+      console.log('[ELIMINAR CLASE] 📤 ENVIANDO EVENTO COLABORATIVO');
+      if (this.collabComp && this.collabComp.sendEvent) {
+        this.collabComp.sendEvent({
+          type: 'delete_class',
+          diagramId: this.diagramId,
+          payload: { classId: classToDelete }
+        });
+        console.log('[ELIMINAR CLASE] ✅ Evento colaborativo enviado');
+      } else {
+        console.error('[ELIMINAR CLASE] ❌ No se pudo enviar evento colaborativo');
+      }
+      
+      // 7. Limpiar selección
+      this.selectedUMLClass = null;
+      console.log('[ELIMINAR CLASE] ✅ ELIMINACIÓN LOCAL COMPLETADA');
+      
+    } catch (error) {
+      console.error('[ELIMINAR CLASE] 💥 Error durante eliminación:', error);
+    }
   }
 
   // Devuelve la clase UML real asociada a un nodo del diagrama
@@ -1640,8 +1998,29 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     
     if (this.collabComp) {
       console.log('🔍 [AFTER-VIEW-INIT] ✅ Componente de colaboración inicializado correctamente');
+      console.log('🔍 [AFTER-VIEW-INIT] sendEvent disponible:', !!this.collabComp.sendEvent);
+      console.log('🔍 [AFTER-VIEW-INIT] Estado de colaboración:', this.collabComp);
+      
+      // Verificar conexión después de un breve delay
+      setTimeout(() => {
+        console.log('🔍 [AFTER-VIEW-INIT] Verificación tardía del componente colaborativo');
+        console.log('🔍 [AFTER-VIEW-INIT] collabComp después de timeout:', !!this.collabComp);
+        console.log('🔍 [AFTER-VIEW-INIT] sendEvent después de timeout:', !!this.collabComp?.sendEvent);
+      }, 2000);
     } else {
       console.error('🔍 [AFTER-VIEW-INIT] ❌ Componente de colaboración NO está disponible');
+      
+      // Verificar nuevamente después de un delay por si el componente se inicializa tarde
+      setTimeout(() => {
+        console.log('🔍 [AFTER-VIEW-INIT] Verificación tardía del componente colaborativo');
+        console.log('🔍 [AFTER-VIEW-INIT] collabComp después de timeout:', !!this.collabComp);
+        if (this.collabComp) {
+          console.log('🔍 [AFTER-VIEW-INIT] ✅ Componente colaborativo ahora disponible');
+          console.log('🔍 [AFTER-VIEW-INIT] sendEvent disponible:', !!this.collabComp.sendEvent);
+        } else {
+          console.error('🔍 [AFTER-VIEW-INIT] ❌ Componente colaborativo sigue sin estar disponible');
+        }
+      }, 2000);
     }
     
     // Agregar funciones de debugging global para consola del navegador
