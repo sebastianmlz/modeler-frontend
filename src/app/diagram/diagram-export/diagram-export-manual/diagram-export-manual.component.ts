@@ -16,54 +16,7 @@ export class DiagramExportManualComponent {
   manualText = '';
   loading = false;
   error = '';
-  prompt = `Eres un experto arquitecto de software especializado en Spring Boot. El código proporcionado contiene un backend Spring Boot COMPLETO generado automáticamente desde un diagrama UML.
-
-ESTE BACKEND INCLUYE TODO EL CÓDIGO GENERADO:
-
-📁 **CONFIGURACIÓN:**
-- pom.xml completo con dependencias Spring Boot
-- application.yml con configuración H2 y JPA
-- README.md con instrucciones
-- Clase principal Application.java
-
-📁 **ENTIDADES JPA (=== ENTIDADES JPA ===):**
-- Clases con @Entity, @Table, @Id, @GeneratedValue
-- Relaciones @OneToMany, @ManyToOne, @JoinColumn
-- Getters, setters y constructores
-
-📁 **REPOSITORIOS (=== REPOSITORIOS JPA ===):**
-- Interfaces que extienden JpaRepository<Entity, Long>
-- Anotación @Repository
-- Métodos CRUD automáticos
-
-📁 **SERVICIOS CRUD (=== SERVICIOS CRUD COMPLETOS ===):**
-- Clases con @Service y @Transactional
-- Inyección de repositorios y mappers
-- Métodos: create(), getById(), listAll(), update(), delete()
-- Conversión con mappers
-
-📁 **CONTROLADORES REST (=== CONTROLADORES REST CRUD COMPLETOS ===):**
-- Clases con @RestController y @RequestMapping
-- Endpoints: GET, POST, PUT, DELETE
-- ResponseEntity con códigos HTTP correctos
-- Inyección de servicios
-
-📁 **DTOs REQUEST (=== DTOs REQUEST ===):**
-- Clases para recibir datos del cliente
-- Validaciones con Jakarta Validation
-- Constructores y getters/setters
-
-📁 **DTOs RESPONSE (=== DTOs RESPONSE ===):**
-- Clases para enviar datos al cliente
-- Campos de respuesta específicos
-- Constructores y getters/setters
-
-📁 **MAPPERS (=== MAPPERS ===):**
-- Clases con @Component
-- Métodos toEntity() y toResponse()
-- Conversión bidireccional Entity ↔ DTO
-
-GENERA una documentación técnica profesional para "${this.projectName}" siguiendo EXACTAMENTE esta estructura:
+  prompt = `Eres un experto arquitecto de software especializado en Spring Boot. Analiza el código del backend proporcionado y GENERA una documentación técnica profesional para "${this.projectName}" siguiendo EXACTAMENTE esta estructura:
 
 # ${this.projectName || 'Backend Spring Boot'} - Documentación Técnica
 
@@ -313,31 +266,37 @@ Ejemplo:
 
 ---
 
-**INSTRUCCIONES CRÍTICAS - LEER ANTES DE DOCUMENTAR:**
+**INSTRUCCIONES CRÍTICAS:**
 
-🔍 **BÚSQUEDA POR SECCIONES:**
+🎯 **OBJETIVO:** Crear documentación técnica profesional con formato estructurado y títulos numerados
+
+📋 **FORMATO REQUERIDO:**
+1. Usar numeración clara (1. 2. 3.) para secciones principales
+2. Usar subnumeración (3.1, 3.2, etc.) para subsecciones  
+3. Incluir tablas bien formateadas para atributos y endpoints
+4. Usar bloques de código con syntax highlighting
+5. Crear descripciones detalladas y profesionales
+
+🔍 **ANÁLISIS DEL CÓDIGO:**
 - Busca "=== ENTIDADES JPA ===" para encontrar todas las entidades
 - Busca "=== REPOSITORIOS JPA ===" para encontrar todos los repositorios  
-- Busca "=== SERVICIOS CRUD COMPLETOS ===" para encontrar servicios con métodos CRUD
-- Busca "=== CONTROLADORES REST CRUD COMPLETOS ===" para controladores con endpoints
-- Busca "=== DTOs REQUEST ===" para DTOs de entrada
-- Busca "=== DTOs RESPONSE ===" para DTOs de salida
+- Busca "=== SERVICIOS CRUD COMPLETOS ===" para encontrar servicios
+- Busca "=== CONTROLADORES REST CRUD COMPLETOS ===" para controladores
+- Busca "=== DTOs REQUEST ===" y "=== DTOs RESPONSE ===" para DTOs
 - Busca "=== MAPPERS ===" para clases de conversión
 
 ✅ **REGLAS OBLIGATORIAS:**
-1. USA EXACTAMENTE el código que encuentres en cada sección - NO INVENTES NADA
-2. Si una sección tiene código, documéntala completamente
-3. Si no encuentras una sección, NO la menciones
-4. TODAS las tablas deben tener el mismo número de columnas en cada fila
-5. Si una celda está vacía, escribe "N/A" o "Ninguno" 
-6. Copia el código tal como aparece, sin modificaciones
-7. NO digas "No existe en el código" si puedes encontrarlo en las secciones
+1. ESTRUCTURA: Seguir exactamente la numeración y títulos del template
+2. CÓDIGO: Copiar código exacto sin modificaciones
+3. TABLAS: Todas las tablas con el mismo número de columnas
+4. DESCRIPCIÓN: Crear descripciones técnicas profesionales para cada entidad
+5. COMPLETITUD: Documentar todos los componentes encontrados
 
 🚫 **ERRORES A EVITAR:**
-- NO digas "No existe" si hay una sección con ese código
-- NO inventes código que no esté en las secciones
-- NO omitas componentes que encuentres en las secciones marcadas
-- NO dejes celdas vacías en las tablas
+- NO saltar la numeración de secciones
+- NO inventar código que no exista
+- NO dejar tablas mal formateadas
+- NO omitir descripciones técnicas
 
 CÓDIGO COMPLETO DEL BACKEND:
 ${this.backendCode}`;
