@@ -11,6 +11,8 @@ export class DiagramCollaborationService implements OnDestroy {
   new Subject<DiagramCollabEvent>();
   private statusSubject = new BehaviorSubject<'disconnected' | 'connecting' | 'connected'>('disconnected');
   private _windowId = Math.random().toString(36).substr(2, 9); // Unique window identifier
+  private lastDiagramId?: string;
+  private lastToken?: string;
 
   events$: Observable<DiagramCollabEvent> = this.eventsSubject.asObservable().pipe(
     tap((event: DiagramCollabEvent) => {
@@ -43,6 +45,10 @@ export class DiagramCollaborationService implements OnDestroy {
   connect(diagramId: string, token?: string) {
     console.log(`[WebSocket-${this._windowId}] 🚀 INICIANDO CONEXIÓN PARA DIAGRAMA:`, diagramId);
     console.log(`[WebSocket-${this._windowId}] 🚀 Token disponible:`, token ? 'Sí' : 'No');
+    
+    // Guardar parámetros para reconexión automática
+    this.lastDiagramId = diagramId;
+    this.lastToken = token;
     
     if (this.socket) {
       console.log(`[WebSocket-${this._windowId}] 🔄 Desconectando socket anterior...`);
@@ -89,6 +95,8 @@ export class DiagramCollaborationService implements OnDestroy {
       this.socket.onerror = (error) => {
         console.error(`[WebSocket-${this._windowId}] 💥 ERROR DE CONEXIÓN:`, error);
         console.error(`[WebSocket-${this._windowId}] 💥 Socket state:`, this.socket?.readyState);
+        console.warn(`[WebSocket-${this._windowId}] ⚠️ Backend WebSocket disponible - verificar conectividad`);
+        console.info(`[WebSocket-${this._windowId}] ℹ️ La aplicación continúa funcionando en modo local`);
         this.statusSubject.next('disconnected');
       };
       
