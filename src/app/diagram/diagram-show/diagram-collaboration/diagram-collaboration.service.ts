@@ -2,6 +2,7 @@ import { Injectable, OnDestroy } from '@angular/core';
 import { Observable, Subject, BehaviorSubject } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { DiagramCollabEvent } from '../../diagram-collab-event.model';
+import { environment } from '../../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class DiagramCollaborationService implements OnDestroy {
@@ -24,6 +25,21 @@ export class DiagramCollaborationService implements OnDestroy {
     return this._windowId;
   }
 
+  private buildWebSocketUrl(diagramId: string, token?: string): string {
+    // Usar la URL de WebSocket del environment
+    const baseWsUrl = (environment as any).wsUrl || environment.apiUrl.replace('https://', 'wss://').replace('http://', 'ws://');
+    
+    // Construir la URL completa
+    let fullWsUrl = `${baseWsUrl}/ws/diagram/${diagramId}/`;
+    
+    // Agregar token si está disponible
+    if (token) {
+      fullWsUrl += `?token=${encodeURIComponent(token)}`;
+    }
+    
+    return fullWsUrl;
+  }
+
   connect(diagramId: string, token?: string) {
     console.log(`[WebSocket-${this._windowId}] 🚀 INICIANDO CONEXIÓN PARA DIAGRAMA:`, diagramId);
     console.log(`[WebSocket-${this._windowId}] 🚀 Token disponible:`, token ? 'Sí' : 'No');
@@ -35,11 +51,8 @@ export class DiagramCollaborationService implements OnDestroy {
     
     this.statusSubject.next('connecting');
     
-    // Construir la URL del WebSocket con JWT en query string como espera tu backend
-    let wsUrl = `ws://${window.location.hostname}:8000/ws/diagram/${diagramId}/`;
-    if (token) {
-      wsUrl += `?token=${encodeURIComponent(token)}`;
-    }
+    // Construir la URL del WebSocket usando el environment
+    const wsUrl = this.buildWebSocketUrl(diagramId, token);
     console.log(`[WebSocket-${this._windowId}] 🌐 URL de conexión:`, wsUrl);
     
     try {
