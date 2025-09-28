@@ -16,8 +16,14 @@ if (!geminiApiKey) {
   process.exit(1);
 }
 
-// Ruta del archivo environment.prod.ts
-const envPath = path.join(__dirname, 'src/environments/environment.prod.ts');
+// Ruta del directorio y archivo environment.prod.ts
+const envDir = path.join(__dirname, 'src/environments');
+const envPath = path.join(envDir, 'environment.prod.ts');
+
+// Crear directorio si no existe
+if (!fs.existsSync(envDir)) {
+  fs.mkdirSync(envDir, { recursive: true });
+}
 
 // Contenido del archivo environment
 const content = `export const environment = {
