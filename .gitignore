@@ -40,10 +40,11 @@ testem.log
 # Ignorar archivo de conclusión
 CONCLUSIÓN FINAL - FASE 1 COMPLE.txt
 
-# Ocultar archivos de entorno
+# Ocultar archivos de entorno (mantener environment.railway.ts para Railway)
 /src/environments/environment.ts
 /src/environments/environment.prod.ts
 /src/environments/*.local.ts
+!/src/environments/environment.railway.ts
 
 # System files
 .DS_Store
