@@ -41,6 +41,8 @@ testem.log
 CONCLUSIÓN FINAL - FASE 1 COMPLE.txt
 
 # Archivos de entorno locales sensibles
+/src/environments/environment.ts
+/src/environments/environment.prod.ts
 /src/environments/*.local.ts
 
 # System files

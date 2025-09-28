@@ -132,10 +132,7 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
             style: { fill: '#ffffff', strokeColor: '#000000', strokeWidth: 2 },
             constraints: NodeConstraints.Default | NodeConstraints.Drag
           };
-          console.log('[DEBUG] 🆕 CREANDO NODO con ID:', newNode.id);
-          console.log('[DEBUG] 🆕 Nodo completo:', newNode);
           this.nodes.push(newNode);
-          console.log('[DEBUG] 🆕 Nodos en array después de agregar:', this.nodes.map(n => ({ id: n.id, x: n.offsetX, y: n.offsetY })));
           if (this.diagramComponent) {
             this.diagramComponent.addNode(newNode);
             
@@ -157,8 +154,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
               } else {
                 console.warn('[DEBUG] ❌ Nodo no encontrado con ID original:', newNode.id);
                 // Buscar todos los nodos en el diagrama
-                const allNodes = this.diagramComponent.nodes;
-                console.log('[DEBUG] 📋 Todos los nodos en diagrama:', allNodes.map((n: any) => ({ id: n.id, x: n.offsetX, y: n.offsetY })));
               }
             }, 100);
           }
@@ -619,13 +614,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Maneja cuando se mueve un elemento (método único y simple)
   onElementMoved(event: any) {
-    console.log('🚀 [DRAG-STOP] ===== EVENTO DETECTADO =====');
-    console.log('🚀 [DRAG-STOP] Event completo:', event);
-    console.log('🚀 [DRAG-STOP] Element:', event?.element);
-    console.log('🚀 [DRAG-STOP] Element ID:', event?.element?.id);
-    console.log('🚀 [DRAG-STOP] Position:', { x: event?.element?.offsetX, y: event?.element?.offsetY });
-    console.log('🚀 [DRAG-STOP] ===============================');
-    
     // Validar evento
     if (!event?.element?.id) {
       console.warn('🚀 [DRAG-STOP] ❌ Evento inválido - falta element.id');
@@ -641,8 +629,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     const elementId = event.element.id;
     const newX = event.element.offsetX;
     const newY = event.element.offsetY;
-    
-    console.log(`🚀 [DRAG-STOP] ✅ PROCESANDO: ${elementId} → (${newX}, ${newY})`);
     
     // Verificar que es uno de nuestros elementos
     const isOurElement = this.nodes.find(n => n.id === elementId);
@@ -663,15 +649,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Evento que se dispara cuando cambian propiedades del diagrama
   onPropertyChange(event: any) {
-    console.log('🔥 [PROPERTY-CHANGE] ===== EVENTO DETECTADO =====');
-    console.log('🔥 [PROPERTY-CHANGE] Event completo:', event);
-    console.log('🔥 [PROPERTY-CHANGE] Event keys:', Object.keys(event || {}));
-    console.log('🔥 [PROPERTY-CHANGE] Cause:', event?.cause);
-    console.log('🔥 [PROPERTY-CHANGE] PropertyName:', event?.propertyName);
-    console.log('🔥 [PROPERTY-CHANGE] Element:', event?.element);
-    console.log('🔥 [PROPERTY-CHANGE] Element ID:', event?.element?.id);
-    console.log('🔥 [PROPERTY-CHANGE] ===============================');
-    
     // El evento puede tener diferentes estructuras
     let element = event?.element;
     let propertyName = event?.propertyName;
@@ -693,10 +670,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     }
     
-    console.log('🔥 [PROPERTY-CHANGE] Element final:', element);
-    console.log('🔥 [PROPERTY-CHANGE] Element.id final:', element?.id);
-    console.log('🔥 [PROPERTY-CHANGE] PropertyName final:', propertyName);
-    
     // Detectar eventos de movimiento de manera más amplia
     const isMovementEvent = (
       // Caso 1: Evento con element válido y propertyName de posición
@@ -711,8 +684,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
        this.diagramComponent.selectedItems.nodes && 
        this.diagramComponent.selectedItems.nodes.length > 0)
     );
-    
-    console.log('🔥 [PROPERTY-CHANGE] ¿Es evento de movimiento?', isMovementEvent);
     
     // Si no hay element pero parece ser movimiento, intentar obtenerlo
     if (isMovementEvent && !element && event?.cause === 'ToolAction') {
@@ -779,7 +750,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Evento cuando se crea el diagrama
   onDiagramCreated(event: any) {
-    console.log('[DEBUG] Diagram created event:', event);
   }
 
   // Debounce para manejar cambios de posición
@@ -821,10 +791,7 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       this.umlClasses[classIdx].position = { x, y };
     }
     
-    console.log('[MOVIMIENTO] Datos locales actualizados');
-    
     // Auto-guardar los cambios locales
-    console.log('[MOVIMIENTO] 💾 Guardando cambios locales automáticamente');
     this.autoSaveDiagram();
   }
   
@@ -865,8 +832,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
   
   // Inicializar el monitoreo de posiciones
   private startPositionMonitoring() {
-    console.log('🔄 [POSITION-MONITOR] Iniciando monitoreo de posiciones...');
-    
     // Limpiar interval anterior si existe
     if (this.positionMonitorInterval) {
       clearInterval(this.positionMonitorInterval);
@@ -898,8 +863,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
         }
       });
     }
-    
-    console.log('🔄 [POSITION-MONITOR] Posiciones iniciales actualizadas:', this.lastKnownPositions.size);
   }
   
   // Detener el monitoreo
@@ -1013,10 +976,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Sincroniza los arrays de datos con los visuales antes de guardar
   syncDataFromVisuals() {
-    console.log('[Sync] Sincronizando datos visuales');
-    console.log('[Sync] UML Classes antes:', this.umlClasses.length);
-    console.log('[Sync] Nodes actuales:', this.nodes.length);
-    
     // Sincronizar posiciones de clases existentes desde los nodos
     this.nodes.forEach(node => {
       const classIndex = this.umlClasses.findIndex(cls => cls.id === node.id);
@@ -1049,9 +1008,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     this.umlClasses = this.umlClasses.filter(cls => 
       this.nodes.some(node => node.id === cls.id)
     );
-    
-    console.log('[Sync] UML Classes después:', this.umlClasses.length);
-    console.log('[Sync] Sincronización completada');
   }
 
   saveDiagramVersion() {
@@ -1566,7 +1522,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     
     // Auto-guardar cambios localmente
-    console.log('[NUEVA RELACIÓN] 💾 Guardando nueva relación automáticamente');
     this.autoSaveDiagram();
     
     // Emitir evento colaborativo de agregar relación
@@ -1608,7 +1563,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     
     // Auto-guardar cambios localmente
-    console.log('[ELIMINAR CLASE] 💾 Guardando eliminación automáticamente');
     this.autoSaveDiagram();
     
     // Emitir evento colaborativo de eliminar clase
@@ -1791,8 +1745,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
         return line;
       }).join('\n');
     }
-    
-    console.log('Contenido generado:', content);
     
     // Método más directo: eliminar y recrear el nodo
     if (this.diagramComponent) {
@@ -2029,8 +1981,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
    * Aplica una sugerencia individual de la IA
    */
   onApplySuggestion(suggestion: UMLSuggestion): void {
-    console.log('🤖 Aplicando sugerencia:', suggestion);
-
     try {
       if (suggestion.implementation) {
         let classModified = false;
@@ -2081,8 +2031,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
    * Aplica todas las sugerencias de la IA
    */
   onApplyAllSuggestions(response: UMLSuggestionsResponse): void {
-    console.log('🤖 Aplicando todas las sugerencias:', response);
-
     let appliedCount = 0;
     const modifiedClasses = new Set<string>();
     const addedRelations: string[] = [];
@@ -2115,7 +2063,6 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Actualizar y sincronizar todas las clases modificadas (replica botón "Actualizar clase")
     modifiedClasses.forEach(classId => {
-      console.log('🤖 [SUGERENCIAS MASIVAS] Actualizando clase:', classId);
       this.updateAndSyncClass(classId);
     });
     
