@@ -40,11 +40,8 @@ testem.log
 # Ignorar archivo de conclusión
 CONCLUSIÓN FINAL - FASE 1 COMPLE.txt
 
-# Archivos de entorno locales sensibles
-/src/environments/environment.ts
-/src/environments/environment.prod.ts
-/src/environments/*.local.ts
-
 # System files
 .DS_Store
 Thumbs.db
+.windsurf/
+environments/
