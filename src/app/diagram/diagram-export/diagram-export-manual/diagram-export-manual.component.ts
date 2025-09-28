@@ -20,6 +20,8 @@ export class DiagramExportManualComponent {
 
 IMPORTANTE: NO copies literalmente el código que te proporciono. Analízalo y crea documentación profesional SOBRE ese código.
 
+OBLIGATORIO: Usa ÚNICAMENTE las entidades que encuentres en el código proporcionado. Si encuentras entidades como "persona", "equipo", "estadio" úsalas tal como están. NO inventes entidades como "Alumno", "Curso", "Usuario" si no están en el código.
+
 Genera ÚNICAMENTE la documentación siguiendo esta estructura exacta:
 
 # ${this.projectName || 'Backend Spring Boot'} - Documentación Técnica
@@ -215,10 +217,24 @@ ${this.backendCode}`;
       this.error = 'No hay código backend para generar el manual.';
       return;
     }
+    
+    // Debug: verificar qué código estamos enviando
+    console.log('=== CÓDIGO BACKEND QUE SE ENVÍA ===');
+    console.log('Longitud:', this.backendCode.length);
+    console.log('Primeros 500 caracteres:', this.backendCode.substring(0, 500));
+    console.log('Contiene "persona"?', this.backendCode.includes('persona'));
+    console.log('Contiene "equipo"?', this.backendCode.includes('equipo'));
+    console.log('Contiene "estadio"?', this.backendCode.includes('estadio'));
+    console.log('=== FIN DEBUG ===');
+    
     this.loading = true;
     this.error = '';
     this.manualText = '';
     const prompt = this.prompt;
+    console.log('=== PROMPT FINAL ===');
+    console.log('Longitud del prompt:', prompt.length);
+    console.log('=== FIN PROMPT ===');
+    
     this.aiService.submitPrompt(prompt).subscribe({
       next: (res) => {
         console.log('Respuesta completa de Gemini:', res); // Para debug
