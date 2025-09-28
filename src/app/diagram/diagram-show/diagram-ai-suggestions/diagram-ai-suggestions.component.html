@@ -1,0 +1,112 @@
+<div class="ai-suggestions-container">
+  <!-- Header -->
+  <div class="suggestions-header">
+    <div class="header-title">
+      <span class="title-icon">🤖</span>
+      <h3>Sugerencias de IA</h3>
+    </div>
+    <button 
+      (click)="refreshSuggestions()" 
+      [disabled]="isLoading || !diagramSnapshot"
+      class="refresh-btn">
+      <span [class.spinning]="isLoading">🔄</span>
+    </button>
+  </div>
+
+  <!-- Success Message -->
+  <div *ngIf="showSuccess" class="success-state">
+    <span class="success-icon">✅</span>
+    <p>{{ successMessage }}</p>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <div class="loading-spinner"></div>
+    <p>Analizando diagrama...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !isLoading" class="error-state">
+    <span class="error-icon">❌</span>
+    <p>{{ error }}</p>
+    <button (click)="refreshSuggestions()" class="retry-btn">Reintentar</button>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && !error && suggestions.length === 0 && hasValidContent()" class="empty-state">
+    <span class="empty-icon">✅</span>
+    <p>¡Excelente! No hay sugerencias adicionales para tu diagrama.</p>
+  </div>
+
+  <!-- No Content State -->
+  <div *ngIf="!isLoading && !error && !hasValidContent()" class="no-content-state">
+    <span class="empty-icon">📝</span>
+    <p>Crea algunas clases en tu diagrama para recibir sugerencias inteligentes.</p>
+  </div>
+
+  <!-- Suggestions Content -->
+  <div *ngIf="!isLoading && !error && suggestions.length > 0" class="suggestions-content">
+    
+    <!-- Summary -->
+    <div *ngIf="summary" class="summary-section">
+      <h4>Resumen del Análisis</h4>
+      <p>{{ summary }}</p>
+    </div>
+
+    <!-- Apply All Button -->
+    <div class="apply-all-section">
+      <button 
+        (click)="onApplyAllSuggestions()" 
+        class="apply-all-btn">
+        ✨ Aplicar todas las sugerencias ({{ suggestions.length }})
+      </button>
+    </div>
+
+    <!-- Suggestions List -->
+    <div class="suggestions-list">
+      <div 
+        *ngFor="let suggestion of suggestions; trackBy: trackBySuggestion" 
+        class="suggestion-item"
+        [ngClass]="getSuggestionClass(suggestion.type)">
+        
+        <div class="suggestion-header">
+          <span class="suggestion-icon">{{ getSuggestionIcon(suggestion.type) }}</span>
+          <div class="suggestion-info">
+            <h5 class="suggestion-title">{{ suggestion.title }}</h5>
+            <span class="suggestion-type">{{ suggestion.type | titlecase }}</span>
+          </div>
+        </div>
+
+        <div class="suggestion-body">
+          <p class="suggestion-description">{{ suggestion.description }}</p>
+          
+          <!-- Implementation Preview -->
+          <div *ngIf="suggestion.implementation" class="implementation-preview">
+            <small class="preview-label">Vista previa de cambios:</small>
+            <pre class="implementation-code">{{ suggestion.implementation | json }}</pre>
+          </div>
+        </div>
+
+        <div class="suggestion-actions">
+          <button 
+            (click)="onApplySuggestion(suggestion)" 
+            class="apply-btn">
+            Aplicar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer Info -->
+  <div class="suggestions-footer">
+    <small>
+      <span *ngIf="lastAnalyzedSnapshot">
+        🕒 Última actualización: {{ getLastUpdateTime() }}
+      </span>
+      <span *ngIf="autoRefreshInterval > 0">
+        • Auto-refresh cada {{ autoRefreshInterval / 1000 }}s
+      </span>
+    </small>
+  </div>
+</div>

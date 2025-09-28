@@ -1,0 +1,21 @@
+<div style="margin-top: 2rem; padding: 1.5rem; border: 1px solid #e5e7eb; border-radius: 8px; background: #f8fafc;">
+	<h3 style="font-size: 1.2rem; font-weight: bold; margin-bottom: 1rem; color: #1f2937;">📖 Documentación Técnica Completa (IA)</h3>
+	<div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+		<button (click)="generateManual()" [disabled]="loading || !backendCode" style="background: #3b82f6; color: #fff; border: none; border-radius: 6px; padding: 0.7rem 1.5rem; font-weight: 600; font-size: 0.95rem; cursor: pointer;">
+			<span *ngIf="!loading">📝 Generar Manual</span>
+			<span *ngIf="loading">⏳ Generando...</span>
+		</button>
+		<button (click)="downloadAsPdf()" [disabled]="!manualText || loading" style="background: #059669; color: #fff; border: none; border-radius: 6px; padding: 0.7rem 1.5rem; font-weight: 600; font-size: 0.95rem; cursor: pointer;" [style.opacity]="!manualText || loading ? '0.5' : '1'">
+			📄 Descargar PDF
+		</button>
+	</div>
+	<div *ngIf="error" style="padding: 1rem; background: #fef2f2; border: 1px solid #ef4444; border-radius: 6px; color: #dc2626; margin-bottom: 1rem;">
+		<strong>Error:</strong> {{ error }}
+	</div>
+	<div *ngIf="manualText && !loading" style="margin-top: 1rem;">
+		<h4 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">📖 Vista previa del manual generado:</h4>
+		<div style="max-height: 400px; overflow-y: auto; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; padding: 1rem;">
+			<pre style="white-space: pre-wrap; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 0.9rem; line-height: 1.5; margin: 0; color: #374151;">{{ manualText }}</pre>
+		</div>
+	</div>
+</div>

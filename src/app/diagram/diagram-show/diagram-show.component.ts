@@ -57,14 +57,17 @@ import { FormsModule } from '@angular/forms';
 import { ShowSidebarComponent } from './show-sidebar/show-sidebar.component';
 import { DiagramModule, NodeModel, ConnectorModel, DiagramComponent, NodeConstraints } from '@syncfusion/ej2-angular-diagrams';
 import { DiagramCollaborationComponent } from './diagram-collaboration/diagram-collaboration.component';
+import { DiagramAiSuggestionsComponent } from './diagram-ai-suggestions/diagram-ai-suggestions.component';
+import { DiagramAiPromptComponent } from './diagram-ai-prompt/diagram-ai-prompt.component';
 import { MembersService } from './members.service';
+import { UMLSuggestion, UMLSuggestionsResponse } from '../../core/ai.service';
 
 // ...existing code...
 
 @Component({
   selector: 'app-diagram-show',
   standalone: true,
-  imports: [CommonModule, FormsModule, ShowSidebarComponent, DiagramModule,DiagramCollaborationComponent],
+  imports: [CommonModule, FormsModule, ShowSidebarComponent, DiagramModule,DiagramCollaborationComponent, DiagramAiSuggestionsComponent, DiagramAiPromptComponent],
   templateUrl: './diagram-show.component.html',
   styleUrl: './diagram-show.component.css'
 })
@@ -74,6 +77,8 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
   // Lista de miembros conectados en tiempo real (IDs)
   activeMemberIds: Set<string> = new Set();
   @ViewChild('collabComp', { static: false }) collabComp!: DiagramCollaborationComponent;
+  @ViewChild('aiSuggestionsComp', { static: false }) aiSuggestionsComp!: DiagramAiSuggestionsComponent;
+  @ViewChild('aiPromptComp', { static: false }) aiPromptComp!: DiagramAiPromptComponent;
 
   // Maneja cambios de estado de la colaboración (opcional: puedes mostrar estado en UI si lo deseas)
   onCollabStatus(status: 'disconnected' | 'connecting' | 'connected') {
@@ -158,27 +163,8 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
             }, 100);
           }
         }
-        break;
-      }
-      case 'delete_class': {
-        const classId = event.payload.classId;
-        this.umlClasses = this.umlClasses.filter(cls => cls.id !== classId);
-        this.nodes = this.nodes.filter(n => n.id !== classId);
-        this.umlRelations = this.umlRelations.filter(rel => rel.sourceId !== classId && rel.targetId !== classId);
-        this.connectors = this.connectors.filter(c => c.sourceID !== classId && c.targetID !== classId);
-        if (this.diagramComponent) {
-          const node = this.diagramComponent.getNodeObject(classId);
-          if (node) {
-            this.diagramComponent.remove(node);
-            
-            // Actualizar referencias de arrays para sincronización
-            this.diagramComponent.nodes = [...this.nodes];
-            this.diagramComponent.connectors = [...this.connectors];
-            
-            this.diagramComponent.dataBind();
-            this.diagramComponent.refresh();
-          }
-        }
+        // Notificar al componente de sugerencias IA sobre la nueva clase
+        this.notifyAISuggestionsOfExternalChange('Otro usuario agregó la clase ' + newClass.name);
         break;
       }
       case 'add_relation': {
@@ -229,6 +215,8 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
             this.diagramComponent.refresh();
           }
         }
+        // Notificar al componente de sugerencias IA sobre la nueva relación
+        this.notifyAISuggestionsOfExternalChange('Otro usuario agregó una relación ' + rel.type);
         break;
       }
       case 'delete_relation': {
@@ -355,6 +343,10 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
           }
           
           console.log('[COLABORACIÓN] ✅ UPDATE_CLASS procesado exitosamente');
+          
+          // Notificar al componente de sugerencias IA sobre el cambio externo
+          const updatedClass = event.payload.class;
+          this.notifyAISuggestionsOfExternalChange('Otro usuario actualizó la clase ' + updatedClass.name);
         } catch (error) {
           console.error('[COLABORACIÓN] 💥 Error procesando UPDATE_CLASS:', error);
         } finally {
@@ -950,61 +942,8 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
     
-    // Actualizar contenido visual del nodo
-    this.updateNodeContent(classToUpdate);
-    console.log('[ACTUALIZAR CLASE] 🎨 Contenido visual actualizado');
-    
-    // Auto-guardar cambios localmente
-    console.log('[ACTUALIZAR CLASE] 💾 Guardando cambios de clase automáticamente');
-    this.autoSaveDiagram();
-    
-    // Emitir evento colaborativo de edición de clase
-    console.log('[ACTUALIZAR CLASE] 📤 VERIFICANDO COMPONENTE COLABORATIVO');
-    console.log('[ACTUALIZAR CLASE] 📤 collabComp existe:', !!this.collabComp);
-    console.log('[ACTUALIZAR CLASE] 📤 diagramId existe:', !!this.diagramId);
-    console.log('[ACTUALIZAR CLASE] 📤 diagramId valor:', this.diagramId);
-    
-    if (!this.collabComp) {
-      console.error('[ACTUALIZAR CLASE] ❌ Componente colaborativo no está disponible');
-      return;
-    }
-    
-    if (!this.diagramId) {
-      console.error('[ACTUALIZAR CLASE] ❌ DiagramId no está disponible');
-      return;
-    }
-    
-    console.log('[ACTUALIZAR CLASE] 📤 sendEvent existe:', !!this.collabComp.sendEvent);
-    
-    if (!this.collabComp.sendEvent) {
-      console.error('[ACTUALIZAR CLASE] ❌ Método sendEvent no está disponible');
-      return;
-    }
-    
-    console.log('[ACTUALIZAR CLASE] 📤 PREPARANDO EVENTO COLABORATIVO');
-    
-    const eventData: DiagramCollabEvent = {
-      type: 'update_class' as const,
-      diagramId: this.diagramId,
-      payload: {
-        classId: classToUpdate.id,
-        changes: { ...classToUpdate }
-      }
-    };
-    
-    console.log('[ACTUALIZAR CLASE] 📤 Datos del evento:', eventData);
-    console.log('[ACTUALIZAR CLASE] 📤 DiagramId:', this.diagramId);
-    console.log('[ACTUALIZAR CLASE] 📤 ClassId:', classToUpdate.id);
-    
-    try {
-      console.log('[ACTUALIZAR CLASE] � ENVIANDO EVENTO COLABORATIVO...');
-      this.collabComp.sendEvent(eventData);
-      console.log('[ACTUALIZAR CLASE] ✅ Evento colaborativo enviado exitosamente');
-    } catch (error) {
-      console.error('[ACTUALIZAR CLASE] 💥 Error enviando evento colaborativo:', error);
-    }
-    
-    console.log('[ACTUALIZAR CLASE] ✅ ACTUALIZACIÓN LOCAL COMPLETADA');
+    // Usar el método unificado que replica exactamente esta lógica
+    this.updateAndSyncClass(classToUpdate.id);
   }
   // Array real de clases UML
   umlClasses: UMLClass[] = [];
@@ -1067,6 +1006,11 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
   private lastKnownPositions: Map<string, { x: number, y: number }> = new Map();
   private positionMonitorInterval: any = null;
 
+  // === PROPIEDADES PARA SUGERENCIAS DE IA ===
+  showAISuggestions: boolean = false;
+  showVoicePrompt: boolean = false;
+  currentSnapshot: any = null;
+
   // Sincroniza los arrays de datos con los visuales antes de guardar
   syncDataFromVisuals() {
     console.log('[Sync] Sincronizando datos visuales');
@@ -1128,6 +1072,8 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     this.versionService.createVersion(diagramId, snapshot, message).subscribe({
       next: () => {
         this.savingVersion = false;
+        // Actualizar snapshot para sugerencias de IA
+        this.updateSnapshotForAI();
         alert('¡Versión guardada exitosamente!');
       },
       error: (err) => {
@@ -1520,6 +1466,9 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     // Auto-guardar cambios localmente
     console.log('[NUEVA CLASE] 💾 Guardando nueva clase automáticamente');
     this.autoSaveDiagram();
+    
+    // Actualizar snapshot para sugerencias de IA
+    this.updateSnapshotForAI();
     
     // Emitir evento colaborativo
     if (this.collabComp && this.collabComp.sendEvent) {
@@ -2023,6 +1972,686 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       this.diagramComponent.refresh();
     }
     return assocClassId;
+  }
+
+  // === MÉTODOS PARA SUGERENCIAS DE IA ===
+
+  /**
+   * Toggle del panel de sugerencias de IA
+   */
+  toggleAISuggestions(): void {
+    this.showAISuggestions = !this.showAISuggestions;
+    if (this.showAISuggestions) {
+      this.updateSnapshotForAI();
+    }
+  }
+
+  /**
+   * Toggle del panel de comandos de voz
+   */
+  toggleVoicePrompt(): void {
+    this.showVoicePrompt = !this.showVoicePrompt;
+    if (this.showVoicePrompt) {
+      this.updateSnapshotForAI();
+    }
+  }
+
+  /**
+   * Actualiza el snapshot actual para enviar a la IA
+   */
+  updateSnapshotForAI(): void {
+    this.syncDataFromVisuals();
+    this.currentSnapshot = {
+      classes: this.umlClasses.map(cls => ({
+        id: cls.id,
+        name: cls.name,
+        visibility: cls.visibility,
+        attributes: cls.attributes.map(attr => ({
+          name: attr.name,
+          typeName: attr.typeName,
+          isRequired: attr.isRequired,
+          isPrimaryKey: attr.isPrimaryKey
+        }))
+      })),
+      relations: this.umlRelations.map(rel => ({
+        id: rel.id,
+        sourceId: rel.sourceId,
+        targetId: rel.targetId,
+        type: rel.type,
+        sourceMultiplicity: rel.sourceMultiplicity,
+        targetMultiplicity: rel.targetMultiplicity,
+        name: rel.name
+      }))
+    };
+  }
+
+  /**
+   * Aplica una sugerencia individual de la IA
+   */
+  onApplySuggestion(suggestion: UMLSuggestion): void {
+    console.log('🤖 Aplicando sugerencia:', suggestion);
+
+    try {
+      if (suggestion.implementation) {
+        let classModified = false;
+        
+        // Aplicar atributo sugerido
+        if (suggestion.implementation.attributeToAdd) {
+          this.applyAttributeSuggestion(suggestion.target, suggestion.implementation.attributeToAdd);
+          classModified = true;
+        }
+
+        // Modificar atributo existente
+        if (suggestion.implementation.attributeToModify) {
+          this.applyAttributeModification(suggestion.target, suggestion.implementation.attributeToModify);
+          classModified = true;
+        }
+
+        // Si se modificó una clase, usar el método unificado (replica botón "Actualizar clase")
+        if (classModified) {
+          console.log('🤖 [SUGERENCIAS] Actualizando clase modificada:', suggestion.target);
+          this.updateAndSyncClass(suggestion.target);
+        }
+
+        // Aplicar relación sugerida
+        if (suggestion.implementation.relationToAdd) {
+          const relationId = this.applyRelationSuggestion(suggestion.implementation.relationToAdd);
+          // Emitir evento colaborativo para nueva relación
+          if (relationId) {
+            this.emitRelationAddEvent(relationId);
+          }
+        }
+
+        // Solo actualizar canvas para relaciones (las clases ya se actualizaron individualmente)
+        if (suggestion.implementation.relationToAdd) {
+          this.refreshCanvas();
+        }
+
+        // Autoguardar después de aplicar la sugerencia
+        this.autoSaveDiagram();
+
+        console.log('✅ Sugerencia aplicada exitosamente');
+      }
+    } catch (error) {
+      console.error('❌ Error aplicando sugerencia:', error);
+    }
+  }
+
+  /**
+   * Aplica todas las sugerencias de la IA
+   */
+  onApplyAllSuggestions(response: UMLSuggestionsResponse): void {
+    console.log('🤖 Aplicando todas las sugerencias:', response);
+
+    let appliedCount = 0;
+    const modifiedClasses = new Set<string>();
+    const addedRelations: string[] = [];
+    
+    response.suggestions.forEach(suggestion => {
+      try {
+        if (suggestion.implementation) {
+          if (suggestion.implementation.attributeToAdd) {
+            this.applyAttributeSuggestion(suggestion.target, suggestion.implementation.attributeToAdd);
+            modifiedClasses.add(suggestion.target);
+            appliedCount++;
+          }
+          if (suggestion.implementation.attributeToModify) {
+            this.applyAttributeModification(suggestion.target, suggestion.implementation.attributeToModify);
+            modifiedClasses.add(suggestion.target);
+            appliedCount++;
+          }
+          if (suggestion.implementation.relationToAdd) {
+            const relationId = this.applyRelationSuggestion(suggestion.implementation.relationToAdd);
+            if (relationId) {
+              addedRelations.push(relationId);
+            }
+            appliedCount++;
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error aplicando sugerencia:', error);
+      }
+    });
+
+    // Actualizar y sincronizar todas las clases modificadas (replica botón "Actualizar clase")
+    modifiedClasses.forEach(classId => {
+      console.log('🤖 [SUGERENCIAS MASIVAS] Actualizando clase:', classId);
+      this.updateAndSyncClass(classId);
+    });
+    
+    // Emitir eventos colaborativos para todas las relaciones añadidas
+    addedRelations.forEach(relationId => {
+      this.emitRelationAddEvent(relationId);
+    });
+    
+    // Solo actualizar canvas para relaciones (las clases ya se actualizaron individualmente)
+    if (addedRelations.length > 0) {
+      this.refreshCanvas();
+    }
+    
+    this.updateSnapshotForAI();
+    
+    // Autoguardar después de aplicar todas las sugerencias
+    this.autoSaveDiagram();
+    
+    console.log(`✅ Se aplicaron ${appliedCount} sugerencias de ${response.suggestions.length} totales`);
+  }
+
+  // Método para manejar los cambios aplicados desde comandos de voz
+  onApplyVoiceChanges(response: UMLSuggestionsResponse): void {
+    console.log('🎙️ Aplicando cambios desde comando de voz:', response);
+
+    let appliedCount = 0;
+    const modifiedClasses = new Set<string>();
+    const addedRelations: string[] = [];
+    const idMapping = new Map<string, string>(); // Mapeo de IDs de IA a IDs reales
+    
+    // PASO 1: Crear primero todas las clases nuevas y generar mapeo de IDs
+    response.suggestions.forEach(suggestion => {
+      try {
+        if (suggestion.implementation?.classToAdd) {
+          console.log('🎙️ [CREAR CLASE] Aplicando nueva clase:', suggestion.implementation.classToAdd.name);
+          const originalId = suggestion.implementation.classToAdd.id;
+          const realId = this.applyClassSuggestionWithMapping(suggestion.implementation.classToAdd);
+          if (realId) {
+            idMapping.set(originalId, realId);
+            appliedCount++;
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error creando clase desde voz:', error);
+      }
+    });
+
+    // PASO 2: Aplicar atributos y modificaciones a clases existentes
+    response.suggestions.forEach(suggestion => {
+      try {
+        if (suggestion.implementation) {
+          // Aplicar atributos
+          if (suggestion.implementation.attributeToAdd) {
+            // Mapear el target si es necesario
+            const targetId = idMapping.get(suggestion.target) || suggestion.target;
+            this.applyAttributeSuggestion(targetId, suggestion.implementation.attributeToAdd);
+            modifiedClasses.add(targetId);
+            appliedCount++;
+          }
+          
+          // Modificar atributos existentes
+          if (suggestion.implementation.attributeToModify) {
+            const targetId = idMapping.get(suggestion.target) || suggestion.target;
+            this.applyAttributeModification(targetId, suggestion.implementation.attributeToModify);
+            modifiedClasses.add(targetId);
+            appliedCount++;
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error aplicando cambio de atributo desde voz:', error);
+      }
+    });
+
+    // PASO 3: Aplicar relaciones (con IDs ya mapeados)
+    response.suggestions.forEach(suggestion => {
+      try {
+        if (suggestion.implementation?.relationToAdd) {
+          console.log('🎙️ [CREAR RELACIÓN] Aplicando nueva relación:', suggestion.implementation.relationToAdd.type);
+          // Mapear los IDs de source y target
+          const relationData = { ...suggestion.implementation.relationToAdd };
+          relationData.sourceId = idMapping.get(relationData.sourceId) || relationData.sourceId;
+          relationData.targetId = idMapping.get(relationData.targetId) || relationData.targetId;
+          
+          const relationId = this.applyRelationSuggestion(relationData);
+          if (relationId) {
+            addedRelations.push(relationId);
+            appliedCount++;
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error aplicando relación desde voz:', error);
+      }
+    });
+
+    // Actualizar y sincronizar todas las clases modificadas
+    modifiedClasses.forEach(classId => {
+      console.log('🎙️ [COMANDO VOZ] Actualizando clase:', classId);
+      this.updateAndSyncClass(classId);
+    });
+    
+    // Emitir eventos colaborativos para todas las relaciones añadidas
+    addedRelations.forEach(relationId => {
+      this.emitRelationAddEvent(relationId);
+    });
+    
+    // Actualizar canvas para relaciones
+    if (addedRelations.length > 0) {
+      this.refreshCanvas();
+    }
+    
+    this.updateSnapshotForAI();
+    
+    // Autoguardar después de aplicar cambios de voz
+    this.autoSaveDiagram();
+    
+    console.log(`✅ Se aplicaron ${appliedCount} cambios de voz de ${response.suggestions.length} totales`);
+  }
+
+  /**
+   * Aplica un atributo sugerido a una clase
+   */
+  private applyAttributeSuggestion(classId: string, attributeData: any): void {
+    const targetClass = this.umlClasses.find(cls => cls.id === classId);
+    if (!targetClass) {
+      console.warn('⚠️ Clase no encontrada para aplicar atributo:', classId);
+      return;
+    }
+
+    // Manejar tanto arrays como objetos individuales
+    const attributesToAdd = Array.isArray(attributeData) ? attributeData : [attributeData];
+    
+    attributesToAdd.forEach(attrData => {
+      // Verificar que el atributo no exista ya
+      const existingAttr = targetClass.attributes.find(attr => attr.name === attrData.name);
+      if (existingAttr) {
+        console.warn('⚠️ El atributo ya existe:', attrData.name);
+        return;
+      }
+
+      // Si el nuevo atributo es PK, remover PK de otros atributos
+      if (attrData.isPrimaryKey) {
+        targetClass.attributes.forEach(attr => {
+          if (attr.isPrimaryKey) {
+            attr.isPrimaryKey = false;
+            console.log('🔄 Removiendo PK de:', attr.name);
+          }
+        });
+      }
+
+      // Crear nuevo atributo
+      const newAttribute: UMLAttribute = {
+        id: `attr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name: attrData.name,
+        typeName: attrData.typeName || 'string',
+        isRequired: attrData.isRequired || false,
+        isPrimaryKey: attrData.isPrimaryKey || false,
+        position: targetClass.attributes.length
+      };
+
+      targetClass.attributes.push(newAttribute);
+      console.log('✅ Atributo agregado:', newAttribute.name, 'a clase:', targetClass.name);
+    });
+  }
+
+  /**
+   * Modifica un atributo existente según la sugerencia
+   */
+  private applyAttributeModification(classId: string, modificationData: any): void {
+    const targetClass = this.umlClasses.find(cls => cls.id === classId);
+    if (!targetClass) {
+      console.warn('⚠️ Clase no encontrada para modificar atributo:', classId);
+      return;
+    }
+
+    const targetAttribute = targetClass.attributes.find(attr => attr.name === modificationData.name);
+    if (!targetAttribute) {
+      console.warn('⚠️ Atributo no encontrado para modificar:', modificationData.name);
+      return;
+    }
+
+    // Aplicar la modificación según el tipo de propiedad
+    const propertyName = modificationData.propertyName;
+    const newValue = modificationData.newValue;
+
+    if (propertyName in targetAttribute) {
+      (targetAttribute as any)[propertyName] = newValue;
+      console.log('✅ Atributo modificado:', modificationData.name, propertyName, '→', newValue);
+    } else {
+      console.warn('⚠️ Propiedad no válida para modificar:', propertyName);
+    }
+  }
+
+  /**
+   * Aplica una relación sugerida
+   */
+  private applyRelationSuggestion(relationData: any): string | null {
+    // Verificar que las clases existan
+    const sourceClass = this.umlClasses.find(cls => cls.id === relationData.sourceId);
+    const targetClass = this.umlClasses.find(cls => cls.id === relationData.targetId);
+    
+    if (!sourceClass || !targetClass) {
+      console.warn('⚠️ Clases no encontradas para crear relación:', relationData);
+      return null;
+    }
+
+    // Verificar que la relación no exista ya
+    const existingRelation = this.umlRelations.find(rel => 
+      rel.sourceId === relationData.sourceId && 
+      rel.targetId === relationData.targetId &&
+      rel.type === relationData.type
+    );
+    
+    if (existingRelation) {
+      console.warn('⚠️ La relación ya existe');
+      return null;
+    }
+
+    // Crear nueva relación
+    const newRelation: UMLRelation = {
+      id: `rel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      sourceId: relationData.sourceId,
+      targetId: relationData.targetId,
+      type: relationData.type || 'Asociación',
+      sourceMultiplicity: relationData.sourceMultiplicity || '1',
+      targetMultiplicity: relationData.targetMultiplicity || '1',
+      name: relationData.name || ''
+    };
+
+    this.umlRelations.push(newRelation);
+    console.log('✅ Relación agregada:', newRelation.type, 'entre:', sourceClass.name, 'y', targetClass.name);
+    return newRelation.id;
+  }
+
+  /**
+   * Aplica una clase sugerida desde comandos de voz y retorna el ID real generado
+   */
+  private applyClassSuggestionWithMapping(classData: any): string | null {
+    // Verificar que la clase no exista ya
+    const existingClass = this.umlClasses.find(cls => cls.name.toLowerCase() === classData.name.toLowerCase());
+    
+    if (existingClass) {
+      console.warn('⚠️ La clase ya existe:', classData.name);
+      return existingClass.id; // Retornar ID existente
+    }
+
+    // Generar ID único
+    const realId = `class_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Crear nueva clase
+    const newClass: UMLClass = {
+      id: realId,
+      name: classData.name,
+      visibility: classData.visibility || 'PUBLIC',
+      position: classData.position || { x: 100 + (this.umlClasses.length * 50), y: 100 + (this.umlClasses.length * 50) },
+      size: { w: 200, h: 150 },
+      attributes: classData.attributes || []
+    };
+
+    // Agregar la clase
+    this.umlClasses.push(newClass);
+    
+    // Crear contenido visual
+    let content = newClass.name;
+    if (newClass.attributes && newClass.attributes.length > 0) {
+      content += '\n' + '─'.repeat(Math.max(newClass.name.length, 10)) + '\n';
+      content += newClass.attributes.map((attr: any) => {
+        let line = attr.name + ': ' + attr.typeName;
+        if (attr.isPrimaryKey) line += ' [PK]';
+        return line;
+      }).join('\n');
+    }
+    
+    const lines = content.split('\n');
+    const maxLineLength = Math.max(...lines.map(line => line.length));
+    const calculatedWidth = Math.max(150, maxLineLength * 8 + 20);
+    const calculatedHeight = Math.max(80, lines.length * 20 + 20);
+    
+    newClass.size.w = calculatedWidth;
+    newClass.size.h = calculatedHeight;
+
+    // Crear nodo visual
+    const newNode: NodeModel = {
+      id: newClass.id,
+      offsetX: newClass.position.x,
+      offsetY: newClass.position.y,
+      width: newClass.size.w,
+      height: newClass.size.h,
+      annotations: [{
+        content: content,
+        style: { fontSize: 12, color: 'black', textAlign: 'Left', textWrapping: 'Wrap' }
+      }],
+      style: {
+        fill: '#E1F5FE',
+        strokeColor: '#0277BD',
+        strokeWidth: 2
+      },
+      constraints: NodeConstraints.Default | NodeConstraints.AllowDrop
+    };
+
+    // Agregar al diagrama
+    this.diagramComponent.add(newNode);
+    
+    // Emitir evento colaborativo
+    if (this.collabComp && this.collabComp.sendEvent) {
+      this.collabComp.sendEvent({
+        type: 'add_class',
+        diagramId: this.diagramId,
+        payload: { class: newClass }
+      });
+    }
+    
+    // Autoguardar después de crear la clase
+    this.autoSaveDiagram();
+    
+    console.log('✅ Clase agregada desde comando de voz:', newClass.name, 'con ID:', realId);
+    return realId;
+  }
+
+  /**
+   * Aplica una clase sugerida desde comandos de voz (método de compatibilidad)
+   */
+  private applyClassSuggestion(classData: any): void {
+    this.applyClassSuggestionWithMapping(classData);
+  }
+
+  /**
+   * Actualiza el canvas después de aplicar sugerencias
+   */
+  private refreshCanvas(): void {
+    // Actualizar nodos existentes
+    this.umlClasses.forEach(umlClass => {
+      this.updateNodeContent(umlClass);
+    });
+
+    // Crear conectores para nuevas relaciones
+    this.umlRelations.forEach(relation => {
+      const existingConnector = this.connectors.find(conn => conn.id === `connector_${relation.id}`);
+      if (!existingConnector) {
+        this.createVisualConnector(relation);
+      }
+    });
+
+    // Refrescar el diagrama
+    if (this.diagramComponent) {
+      this.diagramComponent.dataBind();
+      this.diagramComponent.refresh();
+    }
+  }
+
+  /**
+   * Crea un conector visual para una relación UML
+   */
+  private createVisualConnector(relation: UMLRelation): void {
+    let connector: ConnectorModel = {
+      id: relation.id,
+      sourceID: relation.sourceId,
+      targetID: relation.targetId,
+      type: 'Orthogonal',
+      style: { strokeColor: '#222', strokeWidth: 2 },
+      targetDecorator: { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } }
+    };
+
+    // Aplicar estilos específicos según el tipo de relación UML
+    switch (relation.type) {
+      case 'Herencia':
+        connector.targetDecorator = { shape: 'Arrow', style: { fill: '#fff', strokeColor: '#222', strokeWidth: 2 } };
+        connector.style = { strokeColor: '#222', strokeWidth: 2 };
+        break;
+      case 'Asociación':
+        connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
+        connector.style = { strokeColor: '#222', strokeWidth: 2 };
+        break;
+      case 'Agregación':
+        connector.targetDecorator = { shape: 'Diamond', style: { fill: '#fff', strokeColor: '#222', strokeWidth: 2 } };
+        connector.style = { strokeColor: '#222', strokeWidth: 2 };
+        break;
+      case 'Composición':
+        connector.targetDecorator = { shape: 'Diamond', style: { fill: '#222', strokeColor: '#222', strokeWidth: 2 } };
+        connector.style = { strokeColor: '#222', strokeWidth: 2 };
+        break;
+      case 'Dependencia':
+        connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
+        connector.style = { strokeColor: '#222', strokeWidth: 2, strokeDashArray: '4 2' };
+        break;
+      case 'AsociaciónNtoN':
+        connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
+        connector.style = { strokeColor: '#222', strokeWidth: 2 };
+        break;
+    }
+
+    // Agregar multiplicidades si existen
+    if (relation.sourceMultiplicity || relation.targetMultiplicity) {
+      connector.annotations = [];
+      if (relation.sourceMultiplicity) {
+        connector.annotations.push({
+          content: relation.sourceMultiplicity,
+          alignment: 'Before',
+          displacement: { x: 0, y: -10 }
+        });
+      }
+      if (relation.targetMultiplicity) {
+        connector.annotations.push({
+          content: relation.targetMultiplicity,
+          alignment: 'After',
+          displacement: { x: 0, y: -10 }
+        });
+      }
+    }
+
+    this.connectors.push(connector);
+    
+    if (this.diagramComponent) {
+      this.diagramComponent.add(connector);
+    }
+
+    console.log('✅ Conector visual creado:', relation.type, 'entre:', relation.sourceId, 'y', relation.targetId);
+  }
+
+  /**
+   * Actualiza y sincroniza una clase específica por ID (replica la lógica del botón "Actualizar clase")
+   * Este método debe usarse tanto para cambios manuales como para sugerencias de IA
+   */
+  private updateAndSyncClass(classId: string): void {
+    console.log('[ACTUALIZAR CLASE] 🔄 INICIANDO ACTUALIZACIÓN PARA CLASE ID:', classId);
+    
+    const classToUpdate = this.umlClasses.find(cls => cls.id === classId);
+    if (!classToUpdate) {
+      console.warn('[ACTUALIZAR CLASE] ⚠️ Clase no encontrada con ID:', classId);
+      return;
+    }
+    
+    console.log('[ACTUALIZAR CLASE] 📝 Clase encontrada:', classToUpdate.name);
+    console.log('[ACTUALIZAR CLASE] 📝 Atributos:', classToUpdate.attributes);
+    
+    // 1. Actualizar contenido visual del nodo (igual que el botón manual)
+    this.updateNodeContent(classToUpdate);
+    console.log('[ACTUALIZAR CLASE] 🎨 Contenido visual actualizado');
+    
+    // 2. Auto-guardar cambios localmente (igual que el botón manual)
+    console.log('[ACTUALIZAR CLASE] � Guardando cambios automáticamente');
+    this.autoSaveDiagram();
+    
+    // 3. Emitir evento colaborativo con el formato correcto (igual que el botón manual)
+    if (!this.collabComp || !this.diagramId) {
+      console.warn('[ACTUALIZAR CLASE] ⚠️ Sistema colaborativo no disponible');
+      return;
+    }
+    
+    const eventData: DiagramCollabEvent = {
+      type: 'update_class' as const,
+      diagramId: this.diagramId,
+      payload: {
+        classId: classToUpdate.id,
+        changes: { ...classToUpdate }
+      }
+    };
+    
+    try {
+      console.log('[ACTUALIZAR CLASE] 📤 ENVIANDO EVENTO COLABORATIVO...');
+      this.collabComp.sendEvent(eventData);
+      console.log('[ACTUALIZAR CLASE] ✅ Evento colaborativo enviado exitosamente');
+    } catch (error) {
+      console.error('[ACTUALIZAR CLASE] 💥 Error enviando evento colaborativo:', error);
+    }
+    
+    // 4. Actualizar snapshot para sugerencias de IA
+    this.updateSnapshotForAI();
+    
+    console.log('[ACTUALIZAR CLASE] ✅ ACTUALIZACIÓN COMPLETADA PARA:', classToUpdate.name);
+  }
+
+  /**
+   * Emite un evento colaborativo cuando se actualiza una clase via sugerencias IA
+   * @deprecated Usar updateAndSyncClass() en su lugar para consistencia
+   */
+  private emitClassUpdateEvent(classId: string): void {
+    // Redirigir al método unificado
+    this.updateAndSyncClass(classId);
+  }
+
+  /**
+   * Emite un evento colaborativo cuando se añade una relación via sugerencias IA
+   */
+  private emitRelationAddEvent(relationId: string): void {
+    const addedRelation = this.umlRelations.find(rel => rel.id === relationId);
+    if (!addedRelation) {
+      console.warn('⚠️ Relación no encontrada para emitir evento colaborativo:', relationId);
+      return;
+    }
+
+    if (this.collabComp && this.collabComp.sendEvent) {
+      console.log('[SUGERENCIAS IA] 📤 Emitiendo evento colaborativo add_relation para:', addedRelation.type);
+      try {
+        this.collabComp.sendEvent({
+          type: 'add_relation',
+          diagramId: this.diagramId,
+          payload: { relation: addedRelation }
+        });
+        console.log('[SUGERENCIAS IA] ✅ Evento colaborativo add_relation enviado exitosamente');
+        
+        // Autoguardar después de emitir evento de relación
+        this.autoSaveDiagram();
+        
+      } catch (error) {
+        console.error('[SUGERENCIAS IA] 💥 Error enviando evento colaborativo add_relation:', error);
+      }
+    } else {
+      console.warn('[SUGERENCIAS IA] ⚠️ Sistema de colaboración no disponible para emitir evento add_relation');
+      
+      // Autoguardar incluso si no hay colaboración
+      this.autoSaveDiagram();
+    }
+  }
+
+  /**
+   * Notifica al componente de sugerencias IA sobre cambios externos (otros usuarios)
+   */
+  private notifyAISuggestionsOfExternalChange(message: string): void {
+    // Actualizar snapshot primero
+    this.updateSnapshotForAI();
+    
+    // Mostrar feedback visual temporal si el componente de sugerencias está disponible
+    if (this.aiSuggestionsComp && this.showAISuggestions) {
+      console.log('[COLABORACIÓN] 🤖 Notificando al componente de sugerencias IA:', message);
+      try {
+        this.aiSuggestionsComp.showSuccessFeedback('👥 ' + message);
+        // Refrescar sugerencias después de un pequeño delay para permitir que el UI se actualice
+        setTimeout(() => {
+          if (this.aiSuggestionsComp) {
+            this.aiSuggestionsComp.refreshSuggestions();
+          }
+        }, 1000);
+      } catch (error) {
+        console.error('[COLABORACIÓN] 💥 Error notificando al componente de sugerencias IA:', error);
+      }
+    }
   }
 
   ngAfterViewInit(): void {

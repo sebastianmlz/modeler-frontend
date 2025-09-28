@@ -504,18 +504,127 @@ function generateEntityJava(cls: any, allClasses: any[], allRelations: any[], ba
 import { Component } from '@angular/core';
 import { CommonModule, JsonPipe } from '@angular/common';
 import { Router } from '@angular/router';
-import { FormsModule } from '@angular/forms';
+ import { FormsModule } from '@angular/forms';
+ import { DiagramExportManualComponent } from './diagram-export-manual/diagram-export-manual.component';
 // @ts-ignore
 import JSZip from 'jszip';
 
 @Component({
   selector: 'app-diagram-export',
   standalone: true,
-  imports: [CommonModule, JsonPipe, FormsModule],
+  imports: [CommonModule, FormsModule, DiagramExportManualComponent],
   templateUrl: './diagram-export.component.html',
   styleUrl: './diagram-export.component.css'
 })
 export class DiagramExportComponent {
+  // Código backend generado COMPLETO para el manual IA
+  get backendCode(): string {
+    let code = '';
+    
+    // Información del proyecto
+    code += `PROYECTO: ${this.projectName || 'Backend Spring Boot'}\n`;
+    code += `GENERADO DESDE DIAGRAMA UML\n`;
+    code += `SPRING BOOT 3.2.5 + JAVA 21\n\n`;
+    
+    // === CONFIGURACIÓN DEL PROYECTO ===
+    code += '=== CONFIGURACIÓN DEL PROYECTO ===\n\n';
+    code += '// pom.xml\n';
+    code += generatePomXml(this.projectName || 'backend-spring-boot', 'back') + '\n\n';
+    
+    code += '// README.md\n';
+    code += generateReadme(this.projectName || 'Backend Spring Boot') + '\n\n';
+    
+    code += '// application.yml\n';
+    code += generateApplicationYml() + '\n\n';
+    
+    code += '// Clase Principal Application\n';
+    code += generateMainApplicationJava(toCamelCase(this.projectName || 'Backend') + 'Application') + '\n\n';
+    
+    // === ENTIDADES JPA ===
+    code += '=== ENTIDADES JPA ===\n\n';
+    if (this.javaPreviews.length > 0) {
+      this.javaPreviews.forEach(entity => {
+        code += `// ${entity.name}.java - ENTIDAD JPA\n`;
+        code += entity.code + '\n\n';
+      });
+    }
+    
+    // === REPOSITORIOS JPA ===
+    code += '=== REPOSITORIOS JPA (Spring Data) ===\n\n';
+    if (this.repoPreviews.length > 0) {
+      this.repoPreviews.forEach(repo => {
+        code += `// ${repo.name}.java - REPOSITORIO JPA\n`;
+        code += repo.code + '\n\n';
+      });
+    }
+    
+    // === SERVICIOS CRUD COMPLETOS ===
+    code += '=== SERVICIOS CRUD COMPLETOS ===\n\n';
+    if (this.serviceCrudPreviews.length > 0) {
+      this.serviceCrudPreviews.forEach(service => {
+        code += `// ${service.name}.java - SERVICIO CRUD COMPLETO\n`;
+        code += service.code + '\n\n';
+      });
+    }
+    
+    // === CONTROLADORES REST CRUD ===
+    code += '=== CONTROLADORES REST CRUD COMPLETOS ===\n\n';
+    if (this.controllerCrudPreviews.length > 0) {
+      this.controllerCrudPreviews.forEach(controller => {
+        code += `// ${controller.name}.java - CONTROLADOR REST CRUD\n`;
+        code += controller.code + '\n\n';
+      });
+    }
+    
+    // === DTOs REQUEST ===
+    code += '=== DTOs REQUEST ===\n\n';
+    if (this.dtoRequestPreviews.length > 0) {
+      this.dtoRequestPreviews.forEach(dto => {
+        code += `// ${dto.name}.java - DTO REQUEST\n`;
+        code += dto.code + '\n\n';
+      });
+    }
+    
+    // === DTOs RESPONSE ===
+    code += '=== DTOs RESPONSE ===\n\n';
+    if (this.dtoResponsePreviews.length > 0) {
+      this.dtoResponsePreviews.forEach(dto => {
+        code += `// ${dto.name}.java - DTO RESPONSE\n`;
+        code += dto.code + '\n\n';
+      });
+    }
+    
+    // === MAPPERS ===
+    code += '=== MAPPERS (Conversión Entidad ↔ DTO) ===\n\n';
+    if (this.mapperPreviews.length > 0) {
+      this.mapperPreviews.forEach(mapper => {
+        code += `// ${mapper.name}.java - MAPPER\n`;
+        code += mapper.code + '\n\n';
+      });
+    }
+    
+    // === SERVICIOS BÁSICOS (si existen) ===
+    if (this.servicePreviews.length > 0) {
+      code += '=== SERVICIOS BÁSICOS ===\n\n';
+      this.servicePreviews.forEach(service => {
+        code += `// ${service.name}.java - SERVICIO BÁSICO\n`;
+        code += service.code + '\n\n';
+      });
+    }
+    
+    // === CONTROLADORES BÁSICOS (si existen) ===
+    if (this.controllerPreviews.length > 0) {
+      code += '=== CONTROLADORES BÁSICOS ===\n\n';
+      this.controllerPreviews.forEach(controller => {
+        code += `// ${controller.name}.java - CONTROLADOR BÁSICO\n`;
+        code += controller.code + '\n\n';
+      });
+    }
+    
+    code += '=== FIN DEL CÓDIGO BACKEND ===\n';
+    
+    return code;
+  }
   snapshot: any = null;
   javaPreviews: { name: string, code: string }[] = [];
   repoPreviews: { name: string, code: string }[] = [];

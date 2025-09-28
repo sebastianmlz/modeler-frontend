@@ -1,0 +1,139 @@
+<div class="ai-prompt-container">
+  <!-- Header -->
+  <div class="prompt-header">
+    <div class="header-title">
+      <span class="title-icon">🎙️</span>
+      <h3>Comando por Voz</h3>
+    </div>
+    <div class="status-indicator">
+      <span class="status-icon">{{ getCurrentStatusIcon() }}</span>
+      <span class="status-text">{{ getCurrentStatus() }}</span>
+    </div>
+  </div>
+
+  <!-- Success Message -->
+  <div *ngIf="showSuccess" class="success-state">
+    <span class="success-icon">✅</span>
+    <p>{{ successMessage }}</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !isListening && !isProcessing" class="error-state">
+    <span class="error-icon">❌</span>
+    <p>{{ error }}</p>
+  </div>
+
+  <!-- Voice Recording Control -->
+  <div class="voice-control-section">
+    <div class="recording-area">
+      <button 
+        *ngIf="!isListening" 
+        (click)="startListening()" 
+        [disabled]="isProcessing || !diagramSnapshot"
+        class="start-recording-btn">
+        🎤 Iniciar Grabación
+      </button>
+      
+      <button 
+        *ngIf="isListening" 
+        (click)="stopListening()" 
+        class="stop-recording-btn">
+        ⏹️ Detener Grabación
+      </button>
+    </div>
+
+    <!-- Visual feedback while listening -->
+    <div *ngIf="isListening" class="listening-animation">
+      <div class="sound-wave">
+        <div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+        <div class="wave-bar"></div>
+      </div>
+      <p class="listening-text">Escuchando... Habla ahora</p>
+    </div>
+
+    <!-- Processing state -->
+    <div *ngIf="isProcessing" class="processing-state">
+      <div class="processing-spinner"></div>
+      <p>Procesando tu comando con IA...</p>
+    </div>
+  </div>
+
+  <!-- Recognized Text Display -->
+  <div *ngIf="lastRecognizedText && !isListening" class="recognized-text-section">
+    <h4>Texto Reconocido:</h4>
+    <div class="recognized-text">
+      "{{ lastRecognizedText }}"
+    </div>
+  </div>
+
+  <!-- Response from AI -->
+  <div *ngIf="lastResponse" class="response-section">
+    <div class="response-header">
+      <h4>Respuesta de la IA</h4>
+      <span [class]="lastResponse.success ? 'success-badge' : 'error-badge'">
+        {{ lastResponse.success ? 'Éxito' : 'Error' }}
+      </span>
+    </div>
+    
+    <div class="response-content">
+      <p class="response-message">{{ lastResponse.message }}</p>
+      
+      <!-- Preview of changes -->
+      <div *ngIf="hasChangesToApply()" class="changes-preview">
+        <h5>Cambios Propuestos ({{ lastResponse.changes.suggestions.length }}):</h5>
+        <div class="changes-list">
+          <div 
+            *ngFor="let suggestion of lastResponse.changes.suggestions" 
+            class="change-item"
+            [ngClass]="'change-' + suggestion.type">
+            <span class="change-icon">
+              {{ suggestion.type === 'attribute' ? '🔧' : 
+                 suggestion.type === 'relation' ? '🔗' : 
+                 suggestion.type === 'improvement' ? '✨' : '⚠️' }}
+            </span>
+            <div class="change-details">
+              <strong>{{ suggestion.title }}</strong>
+              <p>{{ suggestion.description }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="response-actions">
+      <button 
+        *ngIf="hasChangesToApply()" 
+        (click)="applyChanges()" 
+        class="apply-btn">
+        ✨ Aplicar Cambios
+      </button>
+      <button 
+        (click)="discardChanges()" 
+        class="discard-btn">
+        🗑️ Descartar
+      </button>
+    </div>
+  </div>
+
+  <!-- Instructions -->
+  <div class="instructions-section">
+    <h4>💡 Instrucciones</h4>
+    <ul>
+      <li><strong>Crear clases:</strong> "Crea una clase Usuario con atributos nombre, email y edad"</li>
+      <li><strong>Agregar atributos:</strong> "Agrega un atributo teléfono a la clase Usuario"</li>
+      <li><strong>Crear relaciones:</strong> "Crea una relación de Usuario uno a muchos con Pedido"</li>
+      <li><strong>Editar existente:</strong> "Modifica la clase Producto para que tenga precio decimal"</li>
+    </ul>
+  </div>
+
+  <!-- Footer Info -->
+  <div class="prompt-footer">
+    <small>
+      🎙️ Funciona mejor en Chrome o Edge • Español (ES)
+    </small>
+  </div>
+</div>

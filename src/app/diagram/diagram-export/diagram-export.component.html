@@ -1,38 +1,4 @@
-		<div *ngIf="serviceCrudPreviews.length > 0" style="margin-top:2rem;">
-			<h3 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">Servicios CRUD implementados:</h3>
-			<div *ngFor="let preview of serviceCrudPreviews" style="margin-bottom:2rem;">
-				<div style="font-weight:bold; margin-bottom:0.3rem;">{{ preview.name }}</div>
-				<pre style="background:#222; color:#fff; padding:1rem; border-radius:8px; max-height:600px; overflow:auto;">{{ preview.code }}</pre>
-			</div>
-		</div>
-		<div *ngIf="controllerCrudPreviews.length > 0" style="margin-top:2rem;">
-			<h3 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">Controladores CRUD implementados:</h3>
-			<div *ngFor="let preview of controllerCrudPreviews" style="margin-bottom:2rem;">
-				<div style="font-weight:bold; margin-bottom:0.3rem;">{{ preview.name }}</div>
-				<pre style="background:#222; color:#fff; padding:1rem; border-radius:8px; max-height:600px; overflow:auto;">{{ preview.code }}</pre>
-			</div>
-		</div>
-		<div *ngIf="dtoRequestPreviews.length > 0" style="margin-top:2rem;">
-			<h3 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">DTOs Request generados:</h3>
-			<div *ngFor="let preview of dtoRequestPreviews" style="margin-bottom:2rem;">
-				<div style="font-weight:bold; margin-bottom:0.3rem;">{{ preview.name }}</div>
-				<pre style="background:#222; color:#fff; padding:1rem; border-radius:8px; max-height:400px; overflow:auto;">{{ preview.code }}</pre>
-			</div>
-		</div>
-		<div *ngIf="dtoResponsePreviews.length > 0" style="margin-top:2rem;">
-			<h3 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">DTOs Response generados:</h3>
-			<div *ngFor="let preview of dtoResponsePreviews" style="margin-bottom:2rem;">
-				<div style="font-weight:bold; margin-bottom:0.3rem;">{{ preview.name }}</div>
-				<pre style="background:#222; color:#fff; padding:1rem; border-radius:8px; max-height:400px; overflow:auto;">{{ preview.code }}</pre>
-			</div>
-		</div>
-		<div *ngIf="mapperPreviews.length > 0" style="margin-top:2rem;">
-			<h3 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">Mappers generados:</h3>
-			<div *ngFor="let preview of mapperPreviews" style="margin-bottom:2rem;">
-				<div style="font-weight:bold; margin-bottom:0.3rem;">{{ preview.name }}</div>
-				<pre style="background:#222; color:#fff; padding:1rem; border-radius:8px; max-height:400px; overflow:auto;">{{ preview.code }}</pre>
-			</div>
-		</div>
+		<!-- Código generado exitosamente - Ver documentación con IA abajo -->
 <div style="padding: 2rem;">
 	<div style="margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem;">
 		<input [(ngModel)]="projectName" placeholder="Ej: modeler-generated" style="padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid #ccc; font-size: 1rem; min-width: 260px;" />
@@ -40,38 +6,26 @@
 	</div>
 	<h2 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem;">Exportar Backend Spring Boot</h2>
 	<div *ngIf="snapshot; else noSnapshot">
-		<pre style="background: #f3f4f6; padding: 1rem; border-radius: 8px; max-height: 400px; overflow: auto;">{{ snapshot | json }}</pre>
-		<!-- Aquí irá la lógica de generación y descarga -->
-		<div *ngIf="javaPreviews.length > 0" style="margin-top:2rem;">
-			<h3 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">Entidades generadas:</h3>
-			<div *ngFor="let preview of javaPreviews" style="margin-bottom:2rem;">
-				<div style="font-weight:bold; margin-bottom:0.3rem;">{{ preview.name }}</div>
-				<pre style="background:#222; color:#fff; padding:1rem; border-radius:8px; max-height:400px; overflow:auto;">{{ preview.code }}</pre>
+		<div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem;">
+			<div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+				<span style="font-size: 1.5rem;">✅</span>
+				<h3 style="font-size: 1.2rem; font-weight: bold; color: #0c4a6e; margin: 0;">Backend Spring Boot Generado Exitosamente</h3>
 			</div>
-		</div>
-		<div *ngIf="repoPreviews.length > 0" style="margin-top:2rem;">
-			<h3 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">Repositorios generados:</h3>
-			<div *ngFor="let preview of repoPreviews" style="margin-bottom:2rem;">
-				<div style="font-weight:bold; margin-bottom:0.3rem;">{{ preview.name }}</div>
-				<pre style="background:#222; color:#fff; padding:1rem; border-radius:8px; max-height:400px; overflow:auto;">{{ preview.code }}</pre>
-			</div>
-		</div>
-		<div *ngIf="servicePreviews.length > 0" style="margin-top:2rem;">
-			<h3 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">Servicios generados:</h3>
-			<div *ngFor="let preview of servicePreviews" style="margin-bottom:2rem;">
-				<div style="font-weight:bold; margin-bottom:0.3rem;">{{ preview.name }}</div>
-				<pre style="background:#222; color:#fff; padding:1rem; border-radius:8px; max-height:400px; overflow:auto;">{{ preview.code }}</pre>
-			</div>
-		</div>
-		<div *ngIf="controllerPreviews.length > 0" style="margin-top:2rem;">
-			<h3 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">Controladores generados:</h3>
-			<div *ngFor="let preview of controllerPreviews" style="margin-bottom:2rem;">
-				<div style="font-weight:bold; margin-bottom:0.3rem;">{{ preview.name }}</div>
-				<pre style="background:#222; color:#fff; padding:1rem; border-radius:8px; max-height:400px; overflow:auto;">{{ preview.code }}</pre>
+			<div style="color: #075985; font-size: 0.95rem; line-height: 1.5;">
+				<p style="margin: 0 0 0.5rem 0;"><strong>✨ Componentes generados:</strong> {{ javaPreviews.length }} entidades, {{ repoPreviews.length }} repositorios, {{ serviceCrudPreviews.length }} servicios CRUD, {{ controllerCrudPreviews.length }} controladores REST</p>
+				<p style="margin: 0 0 0.5rem 0;"><strong>📦 DTOs y Mappers:</strong> {{ dtoRequestPreviews.length }} DTOs Request, {{ dtoResponsePreviews.length }} DTOs Response, {{ mapperPreviews.length }} mappers</p>
+				<p style="margin: 0;"><strong>📋 Próximo paso:</strong> Genera la documentación técnica completa usando IA abajo ⬇️</p>
 			</div>
 		</div>
 	</div>
 	<ng-template #noSnapshot>
 		<div style="color: #e11d48; font-weight: 500;">No se recibió el snapshot del diagrama. Regresa y vuelve a intentar exportar.</div>
 	</ng-template>
+<!-- ...todo el contenido anterior... -->
 </div>
+
+<!-- Componente de manual con IA -->
+<app-diagram-export-manual 
+	[backendCode]="backendCode"
+	[projectName]="projectName || 'Backend Spring Boot'">
+</app-diagram-export-manual>
