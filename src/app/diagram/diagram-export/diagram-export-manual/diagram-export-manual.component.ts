@@ -16,7 +16,11 @@ export class DiagramExportManualComponent {
   manualText = '';
   loading = false;
   error = '';
-  prompt = `Eres un experto arquitecto de software especializado en Spring Boot. Analiza el código del backend proporcionado y GENERA una documentación técnica profesional para "${this.projectName}" siguiendo EXACTAMENTE esta estructura:
+  prompt = `Tu tarea es generar una documentación técnica profesional para el proyecto "${this.projectName}". 
+
+IMPORTANTE: NO copies literalmente el código que te proporciono. Analízalo y crea documentación profesional SOBRE ese código.
+
+Genera ÚNICAMENTE la documentación siguiendo esta estructura exacta:
 
 # ${this.projectName || 'Backend Spring Boot'} - Documentación Técnica
 
@@ -27,10 +31,10 @@ Backend REST API desarrollado con Spring Boot 3.2.5 y Java 21, generado automát
 **Tecnologías Utilizadas:**
 - Spring Boot 3.2.5
 - Spring Data JPA
-- Spring Web MVC
+- Spring Web MVC  
 - Base de datos H2 (desarrollo)
-- OpenAPI/Swagger para documentación
 - Maven como gestor de dependencias
+- Lombok para reducir código boilerplate
 
 **Arquitectura:**
 - **Controladores REST:** Manejan las peticiones HTTP y respuestas
@@ -47,258 +51,157 @@ ${this.projectName || 'backend-spring-boot'}/
 ├── pom.xml
 ├── README.md
 └── src/
-    ├── main/
-    │   ├── java/
-    │   │   └── [paquete.base]/
-    │   │       ├── Application.java
-    │   │       ├── controller/
-    │   │       │   ├── [Entidad]Controller.java
-    │   │       │   └── [...]Controller.java
-    │   │       ├── service/
-    │   │       │   ├── [Entidad]Service.java
-    │   │       │   └── [...]Service.java
-    │   │       ├── repository/
-    │   │       │   ├── [Entidad]Repository.java
-    │   │       │   └── [...]Repository.java
-    │   │       ├── entity/
-    │   │       │   ├── [Entidad].java
-    │   │       │   └── [...].java
-    │   │       ├── dto/
-    │   │       │   ├── [Entidad]Request.java
-    │   │       │   ├── [Entidad]Response.java
-    │   │       │   └── [...]DTO.java
-    │   │       └── mapper/
-    │   │           ├── [Entidad]Mapper.java
-    │   │           └── [...]Mapper.java
-    │   └── resources/
-    │       └── application.yml
-    └── test/
+    └── main/
+        ├── java/
+        │   └── com/example/demo/
+        │       ├── Application.java
+        │       ├── controller/
+        │       ├── service/
+        │       ├── repository/
+        │       ├── entity/
+        │       ├── dto/
+        │       └── mapper/
+        └── resources/
+            └── application.yml
 \`\`\`
 
 ## 3. Entidades JPA
 
-PARA CADA ENTIDAD en el código, crea una sección como esta:
+### 3.1 [Nombre de la primera entidad encontrada]
 
-### 3.X [NombreEntidad]
+**Descripción:** [Describe brevemente el propósito de esta entidad]
 
-**Descripción:** [Propósito de la entidad]
-
-**Tabla de Base de Datos:** \`[nombre_tabla]\`
+**Tabla de Base de Datos:** \`[nombre_tabla_extraido_del_@Table]\`
 
 **Atributos:**
 
 | Campo | Tipo Java | Tipo BD | Descripción | Anotaciones JPA |
 |-------|-----------|---------|-------------|-----------------|
-| id | Long | BIGINT | Clave primaria | @Id @GeneratedValue |
-| [campo] | [tipo] | [tipo_bd] | [descripción] | [anotaciones] |
-| [campo] | [tipo] | [tipo_bd] | [descripción] | [anotaciones] |
+| id | Long | BIGINT | Clave primaria auto-generada | @Id @GeneratedValue |
+| [campo1] | [tipo] | [tipo_bd] | [propósito del campo] | [anotaciones principales] |
+| [campo2] | [tipo] | [tipo_bd] | [propósito del campo] | [anotaciones principales] |
 
 **Relaciones:**
-- [Describir cada relación @OneToMany, @ManyToOne, @ManyToMany encontrada]
+- [Describir relaciones encontradas, ej: "Relación @OneToMany con Producto"]
 
-**Código de la Entidad:**
-\`\`\`java
-[CÓDIGO COMPLETO Y EXACTO de la entidad del backend proporcionado]
-\`\`\`
+### 3.2 [Nombre de la segunda entidad]
+[Repetir estructura para cada entidad encontrada]
 
 ## 4. Repositorios JPA
 
-PARA CADA REPOSITORIO en el código:
+### 4.1 [Nombre]Repository
 
-### 4.X [NombreEntidad]Repository
-+
-**Extends:** JpaRepository<[Entidad], Long>
+**Funcionalidad:** Interfaz de acceso a datos que extiende JpaRepository para operaciones CRUD automáticas.
 
-**Funcionalidad:** Acceso a datos para la entidad [NombreEntidad] con operaciones CRUD automáticas.
+**Métodos Disponibles:**
+- Operaciones CRUD estándar de JpaRepository
+- Métodos de consulta personalizados (si los hay)
 
-**Métodos Heredados:**
-- \`List<[Entidad]> findAll()\` - Listar todos los registros
-- \`Optional<[Entidad]> findById(Long id)\` - Buscar por ID
-- \`<S extends [Entidad]> S save(S entity)\` - Guardar o actualizar
-- \`void deleteById(Long id)\` - Eliminar por ID
-- \`long count()\` - Contar registros
-- \`boolean existsById(Long id)\` - Verificar existencia
-
-**Código del Repositorio:**
-\`\`\`java
-[CÓDIGO COMPLETO Y EXACTO del repositorio del backend proporcionado]
-\`\`\`
+### 4.2 [Repetir para cada repositorio]
 
 ## 5. Servicios (Lógica de Negocio)
 
-PARA CADA SERVICIO CRUD en el código:
+### 5.1 [Nombre]Service
 
-### 5.X [NombreEntidad]Service
+**Responsabilidad:** Contiene la lógica de negocio para la entidad [Nombre].
 
-**Anotaciones:** @Service, @Transactional
+**Operaciones CRUD:**
 
-**Dependencias Inyectadas:**
-- [NombreEntidad]Repository
-- [NombreEntidad]Mapper
+| Método | Descripción | Parámetros | Retorno |
+|--------|-------------|------------|---------|
+| create | Crear nueva entidad | [Entidad]Request | void |
+| getById | Obtener por ID | Long id | [Entidad]Response |
+| listAll | Listar todas | Ninguno | List<[Entidad]Response> |
+| update | Actualizar existente | Long id, [Entidad]Request | void |
+| delete | Eliminar por ID | Long id | void |
 
-**Operaciones CRUD Implementadas:**
-
-| Método | Parámetros | Retorno | Descripción | Transaccional |
-|--------|------------|---------|-------------|---------------|
-| create | [Entidad]Request | void | Crear nueva entidad | Sí |
-| getById | Long id | [Entidad]Response | Obtener por ID | No |
-| listAll | - | List<[Entidad]Response> | Listar todas | No |
-| update | Long id, [Entidad]Request | void | Actualizar entidad | Sí |
-| delete | Long id | void | Eliminar entidad | Sí |
-
-**Código del Servicio:**
-\`\`\`java
-[CÓDIGO COMPLETO Y EXACTO del servicio CRUD del backend proporcionado]
-\`\`\`
+### 5.2 [Repetir para cada servicio]
 
 ## 6. DTOs (Data Transfer Objects)
 
-PARA CADA DTO en el código:
+### 6.1 [Entidad] - Request/Response DTOs
 
-### 6.X [NombreEntidad] DTOs
+**[Entidad]Request:**
+- Campos: [listar campos encontrados]
+- Propósito: Recibir datos para crear/actualizar
 
-#### Request DTO
-**Propósito:** Recibir datos del cliente para crear/actualizar entidades
+**[Entidad]Response:**  
+- Campos: [listar campos encontrados]
+- Propósito: Enviar datos al cliente
 
-\`\`\`java
-[CÓDIGO COMPLETO Y EXACTO del DTO Request del backend proporcionado]
-\`\`\`
-
-#### Response DTO
-**Propósito:** Enviar datos al cliente como respuesta
-
-\`\`\`java
-[CÓDIGO COMPLETO Y EXACTO del DTO Response del backend proporcionado]
-\`\`\`
-
-#### Mapper
-**Propósito:** Convertir entre entidades y DTOs
-
-\`\`\`java
-[CÓDIGO COMPLETO Y EXACTO del Mapper del backend proporcionado]
-\`\`\`
+### 6.2 [Repetir para cada conjunto de DTOs]
 
 ## 7. Controladores REST
 
-PARA CADA CONTROLADOR en el código:
-
-### 7.X [NombreEntidad]Controller
+### 7.1 [Entidad]Controller
 
 **Base Path:** \`/api/[recurso]\`
-**Anotaciones:** @RestController, @RequestMapping
 
-**Endpoints Disponibles:**
+**Endpoints:**
 
-| Método HTTP | Endpoint | Descripción | Request Body | Response Status | Response Body |
-|-------------|----------|-------------|--------------|-----------------|---------------|
-| GET | /api/[recurso] | Listar todos | Ninguno | 200 OK | List<[Entidad]Response> |
-| GET | /api/[recurso]/{id} | Obtener por ID | Ninguno | 200 OK | [Entidad]Response |
-| POST | /api/[recurso] | Crear nuevo | [Entidad]Request | 201 Created | Ninguno |
-| PUT | /api/[recurso]/{id} | Actualizar | [Entidad]Request | 200 OK | Ninguno |
-| DELETE | /api/[recurso]/{id} | Eliminar | Ninguno | 204 No Content | Ninguno |
+| Método | Endpoint | Descripción | Request | Response |
+|--------|----------|-------------|---------|----------|
+| GET | /api/[recurso] | Listar todos | - | List<[Entidad]Response> |
+| GET | /api/[recurso]/{id} | Obtener por ID | - | [Entidad]Response |
+| POST | /api/[recurso] | Crear nuevo | [Entidad]Request | Status 201 |
+| PUT | /api/[recurso]/{id} | Actualizar | [Entidad]Request | Status 200 |
+| DELETE | /api/[recurso]/{id} | Eliminar | - | Status 204 |
 
-**Ejemplos de Uso:**
-
-**POST** /api/[recurso]
+**Ejemplo Request POST:**
 \`\`\`json
 {
-  [Ejemplo basado en los campos del Request DTO real]
+  [campos del Request DTO reales]
 }
 \`\`\`
 
-**GET** /api/[recurso]/{id} - Response:
-\`\`\`json
-{
-  [Ejemplo basado en los campos del Response DTO real]
-}
-\`\`\`
+### 7.2 [Repetir para cada controlador]
 
-**Código del Controlador:**
-\`\`\`java
-[CÓDIGO COMPLETO Y EXACTO del controlador CRUD del backend proporcionado]
-\`\`\`
+## 8. Configuración
 
-## 8. Configuración del Proyecto
+### 8.1 Configuración de Base de Datos (application.yml)
+- Base de datos H2 en memoria para desarrollo
+- Puerto: 8080
+- Console H2 habilitada en /h2-console
 
-### 8.1 Dependencias Maven (pom.xml)
-\`\`\`xml
-[Fragmento relevante del pom.xml si está en el código]
-\`\`\`
-
-### 8.2 Configuración de la Aplicación (application.yml)
-\`\`\`yaml
-[Contenido del application.yml del backend proporcionado]
-\`\`\`
-
-### 8.3 Clase Principal de Spring Boot
-\`\`\`java
-[CÓDIGO COMPLETO de la clase Application del backend proporcionado]
-\`\`\`
+### 8.2 Dependencias Maven
+- Spring Boot Starter Web
+- Spring Boot Starter Data JPA  
+- H2 Database
+- Lombok
 
 ## 9. Diagrama Entidad-Relación
 
 \`\`\`
-[Crear diagrama ERD textual basado en las relaciones @OneToMany/@ManyToOne encontradas en las entidades]
-
-Ejemplo:
-[Entidad1] ||--o{ [Entidad2] : "tiene muchas"
-[Entidad2] }o--|| [Entidad3] : "pertenece a"
+[Crear representación textual de las relaciones encontradas]
+[Entidad1] ||--o{ [Entidad2] : "relación encontrada"
 \`\`\`
 
-## 10. Guía de Ejecución
+## 10. API Endpoints Summary
+
+**Base URL:** http://localhost:8080
+
+**Recursos disponibles:**
+[Listar todos los endpoints principales encontrados]
+
+## 11. Guía de Ejecución
 
 1. **Prerrequisitos:** Java 21, Maven 3.9+
-2. **Compilar:** \`mvn clean compile\`
+2. **Compilar:** \`mvn clean compile\`  
 3. **Ejecutar:** \`mvn spring-boot:run\`
-4. **Swagger UI:** http://localhost:8080/swagger-ui.html
-5. **Base de datos H2:** http://localhost:8080/h2-console
-
-## 11. Próximos Pasos
-
-1. **Validación:** Agregar @Valid y anotaciones de validación en DTOs
-2. **Manejo de Errores:** Implementar @ControllerAdvice para excepciones globales
-3. **Seguridad:** Integrar Spring Security para autenticación/autorización
-4. **Testing:** Crear tests unitarios para servicios y controladores
-5. **Persistencia:** Migrar de H2 a PostgreSQL/MySQL para producción
-6. **Monitoreo:** Configurar Spring Boot Actuator
-7. **Cache:** Implementar cache con Spring Cache
-8. **Logging:** Configurar Logback estructurado
+4. **Acceder:** http://localhost:8080
+5. **H2 Console:** http://localhost:8080/h2-console
 
 ---
 
-**INSTRUCCIONES CRÍTICAS:**
+**REGLAS CRÍTICAS:**
+🎯 Analiza el código proporcionado y extrae información real
+📋 Mantén la numeración y estructura exacta mostrada arriba  
+✅ Completa cada sección con datos del código real
+� NO copies bloques de código completos
+🚫 NO inventes información que no esté en el código
 
-🎯 **OBJETIVO:** Crear documentación técnica profesional con formato estructurado y títulos numerados
+A continuación te proporciono el código fuente para que lo analices:
 
-📋 **FORMATO REQUERIDO:**
-1. Usar numeración clara (1. 2. 3.) para secciones principales
-2. Usar subnumeración (3.1, 3.2, etc.) para subsecciones  
-3. Incluir tablas bien formateadas para atributos y endpoints
-4. Usar bloques de código con syntax highlighting
-5. Crear descripciones detalladas y profesionales
-
-🔍 **ANÁLISIS DEL CÓDIGO:**
-- Busca "=== ENTIDADES JPA ===" para encontrar todas las entidades
-- Busca "=== REPOSITORIOS JPA ===" para encontrar todos los repositorios  
-- Busca "=== SERVICIOS CRUD COMPLETOS ===" para encontrar servicios
-- Busca "=== CONTROLADORES REST CRUD COMPLETOS ===" para controladores
-- Busca "=== DTOs REQUEST ===" y "=== DTOs RESPONSE ===" para DTOs
-- Busca "=== MAPPERS ===" para clases de conversión
-
-✅ **REGLAS OBLIGATORIAS:**
-1. ESTRUCTURA: Seguir exactamente la numeración y títulos del template
-2. CÓDIGO: Copiar código exacto sin modificaciones
-3. TABLAS: Todas las tablas con el mismo número de columnas
-4. DESCRIPCIÓN: Crear descripciones técnicas profesionales para cada entidad
-5. COMPLETITUD: Documentar todos los componentes encontrados
-
-🚫 **ERRORES A EVITAR:**
-- NO saltar la numeración de secciones
-- NO inventar código que no exista
-- NO dejar tablas mal formateadas
-- NO omitir descripciones técnicas
-
-CÓDIGO COMPLETO DEL BACKEND:
 ${this.backendCode}`;
 
   constructor(
