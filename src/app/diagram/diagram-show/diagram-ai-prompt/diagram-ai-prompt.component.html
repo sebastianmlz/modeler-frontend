@@ -1,4 +1,7 @@
-<div class="ai-prompt-container">
+    <div class="header-title">
+      <i class="pi pi-volume-up title-icon"></i>
+      <h3>Comando por Voz</h3>
+    </div>ass="ai-pro      <i class="pi pi-microphone"></i> Funciona mejor en Chrome o Edge • Español (ES)pt-container">
   <!-- Header -->
   <div class="prompt-header">
     <div class="header-title">
@@ -6,20 +9,20 @@
       <h3>Comando por Voz</h3>
     </div>
     <div class="status-indicator">
-      <span class="status-icon">{{ getCurrentStatusIcon() }}</span>
+      <i [class]="getCurrentStatusIcon() + ' status-icon'"></i>
       <span class="status-text">{{ getCurrentStatus() }}</span>
     </div>
   </div>
 
   <!-- Success Message -->
   <div *ngIf="showSuccess" class="success-state">
-    <span class="success-icon">✅</span>
+    <i class="pi pi-check-circle success-icon"></i>
     <p>{{ successMessage }}</p>
   </div>
 
   <!-- Error State -->
   <div *ngIf="error && !isListening && !isProcessing" class="error-state">
-    <span class="error-icon">❌</span>
+    <i class="pi pi-times-circle error-icon"></i>
     <p>{{ error }}</p>
   </div>
 
@@ -31,14 +34,14 @@
         (click)="startListening()" 
         [disabled]="isProcessing || !diagramSnapshot"
         class="start-recording-btn">
-        🎤 Iniciar Grabación
+        <i class="pi pi-microphone"></i> Iniciar Grabación
       </button>
       
       <button 
         *ngIf="isListening" 
         (click)="stopListening()" 
         class="stop-recording-btn">
-        ⏹️ Detener Grabación
+        <i class="pi pi-stop"></i> Detener Grabación
       </button>
     </div>
 
@@ -89,11 +92,13 @@
             *ngFor="let suggestion of lastResponse.changes.suggestions" 
             class="change-item"
             [ngClass]="'change-' + suggestion.type">
-            <span class="change-icon">
-              {{ suggestion.type === 'attribute' ? '🔧' : 
-                 suggestion.type === 'relation' ? '🔗' : 
-                 suggestion.type === 'improvement' ? '✨' : '⚠️' }}
-            </span>
+            <i class="change-icon" 
+               [ngClass]="{
+                 'pi pi-cog': suggestion.type === 'attribute',
+                 'pi pi-link': suggestion.type === 'relation', 
+                 'pi pi-star': suggestion.type === 'improvement',
+                 'pi pi-exclamation-triangle': suggestion.type === 'warning'
+               }"></i>
             <div class="change-details">
               <strong>{{ suggestion.title }}</strong>
               <p>{{ suggestion.description }}</p>
@@ -109,19 +114,19 @@
         *ngIf="hasChangesToApply()" 
         (click)="applyChanges()" 
         class="apply-btn">
-        ✨ Aplicar Cambios
+        <i class="pi pi-check"></i> Aplicar Cambios
       </button>
       <button 
         (click)="discardChanges()" 
         class="discard-btn">
-        🗑️ Descartar
+        <i class="pi pi-trash"></i> Descartar
       </button>
     </div>
   </div>
 
   <!-- Instructions -->
   <div class="instructions-section">
-    <h4>💡 Instrucciones</h4>
+    <h4><i class="pi pi-info-circle"></i> Instrucciones</h4>
     <ul>
       <li><strong>Crear clases:</strong> "Crea una clase Usuario con atributos nombre, email y edad"</li>
       <li><strong>Agregar atributos:</strong> "Agrega un atributo teléfono a la clase Usuario"</li>
@@ -133,7 +138,6 @@
   <!-- Footer Info -->
   <div class="prompt-footer">
     <small>
-      🎙️ Funciona mejor en Chrome o Edge • Español (ES)
+      <i class="pi pi-microphone"></i> Funciona mejor en Chrome o Edge • Español (ES)
     </small>
   </div>
-</div>

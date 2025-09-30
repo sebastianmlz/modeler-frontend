@@ -1,34 +1,29 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { environment } from '../../../environments/environment';
 import { Observable, tap } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
+/**
+ * Service for handling user authentication operations
+ */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private apiUrl = environment.apiUrl;
+  private readonly apiUrl = environment.apiUrl;
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(
+    private http: HttpClient,
+    private router: Router
+  ) {}
 
+  /**
+   * Authenticates user and handles post-login navigation
+   */
   login(username: string, password: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/api/auth/token/`, { username, password }).pipe(
       tap((res: any) => {
-        localStorage.setItem('access', res.access);
-        localStorage.setItem('refresh', res.refresh);
-        this.getProfile().subscribe(profile => {
-          localStorage.setItem('user', JSON.stringify(profile));
-          
-          // Verificar si hay una URL de redirección guardada
-          const redirectUrl = localStorage.getItem('redirectUrl');
-          if (redirectUrl) {
-            console.log('[AUTH] Redirigiendo a URL guardada:', redirectUrl);
-            localStorage.removeItem('redirectUrl'); // Limpiar la URL guardada
-            this.router.navigateByUrl(redirectUrl);
-          } else {
-            console.log('[AUTH] No hay URL de redirección, yendo al dashboard');
-            this.router.navigate(['/dashboard']);
-          }
-        });
+        this.storeTokens(res);
+        this.loadUserProfile();
       })
     );
   }
@@ -61,5 +56,51 @@ export class AuthService {
 
   isAuthenticated(): boolean {
     return !!this.getAccessToken();
+  }
+
+  /**
+   * Registers a new user account
+   */
+  register(registerData: {
+    username: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    password: string;
+    password_confirm: string;
+    display_name?: string;
+  }): Observable<any> {
+    return this.http.post(`${this.apiUrl}/api/auth/register/register/`, registerData);
+  }
+
+  /**
+   * Stores authentication tokens in localStorage
+   */
+  private storeTokens(tokenResponse: any): void {
+    localStorage.setItem('access', tokenResponse.access);
+    localStorage.setItem('refresh', tokenResponse.refresh);
+  }
+
+  /**
+   * Loads user profile and handles post-login navigation
+   */
+  private loadUserProfile(): void {
+    this.getProfile().subscribe(profile => {
+      localStorage.setItem('user', JSON.stringify(profile));
+      this.handlePostLoginNavigation();
+    });
+  }
+
+  /**
+   * Handles navigation after successful login
+   */
+  private handlePostLoginNavigation(): void {
+    const redirectUrl = localStorage.getItem('redirectUrl');
+    if (redirectUrl) {
+      localStorage.removeItem('redirectUrl');
+      this.router.navigateByUrl(redirectUrl);
+    } else {
+      this.router.navigate(['/dashboard']);
+    }
   }
 }

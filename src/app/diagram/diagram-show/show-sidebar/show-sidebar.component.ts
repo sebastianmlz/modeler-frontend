@@ -1,10 +1,13 @@
 import { Component, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
+/**
+ * Sidebar item interface for UML elements
+ */
 interface SidebarItem {
   type: 'class' | 'relation';
   name: string;
-  icon: string; // SVG string
+  icon: string;
 }
 
 @Component({
@@ -18,6 +21,7 @@ export class ShowSidebarComponent {
   @Output() addClass = new EventEmitter<void>();
   @Output() selectRelation = new EventEmitter<string>();
 
+  // UI state
   selectedRelation: string = '';
 
   umlItems: SidebarItem[] = [
@@ -55,16 +59,20 @@ export class ShowSidebarComponent {
     }
   ];
 
+  /**
+   * Handle UML item click events
+   */
   onUmlItemClick(item: SidebarItem): void {
     if (item.name === 'Clase') {
-      console.log('[Sidebar] Click en Clase');
       this.addClass.emit();
     }
   }
 
+  /**
+   * Handle relation selection
+   */
   onRelationClick(item: SidebarItem): void {
     this.selectedRelation = item.name;
-    console.log('[Sidebar] Relación seleccionada:', item.name);
     this.selectRelation.emit(item.name);
   }
 }

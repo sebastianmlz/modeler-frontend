@@ -12,45 +12,89 @@ import { DiagramService } from '../diagram.service';
   styleUrl: './diagram-create.component.css'
 })
 export class DiagramCreateComponent implements OnInit {
+  // Route parameter
   projectId: string | null = null;
+  
+  // Form properties
   name: string = '';
+  
+  // UI state properties
   loading: boolean = false;
   error: string = '';
   success: boolean = false;
 
-  constructor(private diagramService: DiagramService, private route: ActivatedRoute, private router: Router) {}
+  constructor(
+    private diagramService: DiagramService,
+    private route: ActivatedRoute,
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
     this.projectId = this.route.snapshot.queryParamMap.get('project');
   }
 
-  createDiagram() {
-    this.error = '';
-    this.success = false;
-    if (!this.projectId) {
-      this.error = 'No se especificó proyecto.';
+  /**
+   * Creates a new diagram with form validation
+   */
+  createDiagram(): void {
+    this.resetState();
+    
+    if (!this.validateForm()) {
       return;
     }
-    if (!this.name.trim()) {
-      this.error = 'El nombre es obligatorio.';
-      return;
-    }
+    
     this.loading = true;
-    this.diagramService.createDiagram({
-      project: this.projectId,
+    const diagramData = {
+      project: this.projectId!,
       name: this.name
-    }).subscribe({
-      next: (res) => {
+    };
+    
+    this.diagramService.createDiagram(diagramData).subscribe({
+      next: () => {
         this.success = true;
         this.loading = false;
         setTimeout(() => {
-          this.router.navigate(['/diagram/list'], { queryParams: { project: this.projectId } });
+          this.navigateToDiagramList();
         }, 1200);
       },
       error: (err) => {
         this.error = err?.error?.detail || 'Error al crear diagrama.';
         this.loading = false;
       }
+    });
+  }
+
+  /**
+   * Resets component state
+   */
+  private resetState(): void {
+    this.error = '';
+    this.success = false;
+  }
+
+  /**
+   * Validates form fields
+   */
+  private validateForm(): boolean {
+    if (!this.projectId) {
+      this.error = 'No se especificó proyecto.';
+      return false;
+    }
+    
+    if (!this.name.trim()) {
+      this.error = 'El nombre es obligatorio.';
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Navigate back to diagram list
+   */
+  private navigateToDiagramList(): void {
+    this.router.navigate(['/diagram/list'], {
+      queryParams: { project: this.projectId }
     });
   }
 }

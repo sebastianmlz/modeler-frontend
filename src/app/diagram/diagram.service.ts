@@ -1,19 +1,22 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { environment } from '../../environments/environment';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
+/**
+ * Service for managing diagram operations
+ */
 @Injectable({ providedIn: 'root' })
 export class DiagramService {
-  private apiUrl = environment.apiUrl;
+  private readonly apiUrl = environment.apiUrl;
 
   constructor(private http: HttpClient) {}
 
   /**
-   * Listar diagramas de un proyecto
-   * @param projectId UUID del proyecto
-   * @param page Número de página
-   * @param search Término de búsqueda
+   * Get paginated list of diagrams for a project
+   * @param projectId Project UUID
+   * @param page Page number for pagination
+   * @param search Search term for filtering
    */
   getDiagrams(projectId: string, page: number = 1, search: string = ''): Observable<any> {
     const params: any = { project: projectId };
@@ -23,16 +26,16 @@ export class DiagramService {
   }
 
   /**
-   * Crear diagrama en un proyecto
-   * @param data Datos del diagrama
+   * Create a new diagram in a project
+   * @param data Diagram creation data
    */
   createDiagram(data: { project: string; name: string }): Observable<any> {
     return this.http.post(`${this.apiUrl}/api/diagrams/`, data);
   }
 
   /**
-   * Obtener detalle de un diagrama por ID
-   * @param id UUID del diagrama
+   * Get diagram details by ID
+   * @param id Diagram UUID
    */
   getDiagram(id: string): Observable<any> {
     return this.http.get(`${this.apiUrl}/api/diagrams/${id}/`);

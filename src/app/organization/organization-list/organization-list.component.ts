@@ -12,30 +12,49 @@ import { OrganizationService } from '../organization.service';
   styleUrl: './organization-list.component.css'
 })
 export class OrganizationListComponent implements OnInit {
+  // Data properties
   organizations: any[] = [];
+  
+  // UI state properties
   loading: boolean = true;
   error: string = '';
 
-  constructor(private organizationService: OrganizationService, private router: Router) {}
+  constructor(
+    private organizationService: OrganizationService,
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
+    this.loadOrganizations();
+  }
+
+  /**
+   * Navigate to organization detail page
+   */
+  goToDetail(org: any): void {
+    this.router.navigate(['/organization', org.id]);
+  }
+
+  /**
+   * Navigate to create organization page
+   */
+  goToCreate(): void {
+    this.router.navigate(['/organization/create']);
+  }
+
+  /**
+   * Load organizations from API
+   */
+  private loadOrganizations(): void {
     this.organizationService.getOrganizations().subscribe({
       next: (res) => {
         this.organizations = res.results || [];
         this.loading = false;
       },
-      error: (err) => {
+      error: () => {
         this.error = 'Error al cargar organizaciones';
         this.loading = false;
       }
     });
-  }
-
-  goToDetail(org: any): void {
-    this.router.navigate(['/organization', org.id]);
-  }
-
-  goToCreate(): void {
-    this.router.navigate(['/organization/create']);
   }
 }

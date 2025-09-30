@@ -12,24 +12,35 @@ import { OrganizationService } from '../organization.service';
   styleUrl: './organization-create.component.css'
 })
 export class OrganizationCreateComponent {
+  // Form properties
   name: string = '';
   slug: string = '';
+  
+  // UI state properties
   loading: boolean = false;
   error: string = '';
   success: boolean = false;
 
-  constructor(private organizationService: OrganizationService, private router: Router) {}
+  constructor(
+    private organizationService: OrganizationService,
+    private router: Router
+  ) {}
 
-  createOrganization() {
-    this.error = '';
-    this.success = false;
-    if (!this.name.trim() || !this.slug.trim()) {
-      this.error = 'Todos los campos son obligatorios.';
+  /**
+   * Creates a new organization with form validation
+   */
+  createOrganization(): void {
+    this.resetState();
+    
+    if (!this.validateForm()) {
       return;
     }
+    
     this.loading = true;
-    this.organizationService.createOrganization({ name: this.name, slug: this.slug }).subscribe({
-      next: (res) => {
+    const organizationData = { name: this.name, slug: this.slug };
+    
+    this.organizationService.createOrganization(organizationData).subscribe({
+      next: () => {
         this.success = true;
         this.loading = false;
         setTimeout(() => {
@@ -41,5 +52,24 @@ export class OrganizationCreateComponent {
         this.loading = false;
       }
     });
+  }
+
+  /**
+   * Resets component state
+   */
+  private resetState(): void {
+    this.error = '';
+    this.success = false;
+  }
+
+  /**
+   * Validates form fields
+   */
+  private validateForm(): boolean {
+    if (!this.name.trim() || !this.slug.trim()) {
+      this.error = 'Todos los campos son obligatorios.';
+      return false;
+    }
+    return true;
   }
 }

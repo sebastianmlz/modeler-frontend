@@ -70,7 +70,6 @@ export class DiagramAiPromptComponent implements OnInit, OnDestroy {
     this.recognition.lang = 'es-ES'; // Español
 
     this.recognition.onstart = () => {
-      console.log('🎤 Reconocimiento de voz iniciado');
       this.isListening = true;
       this.error = '';
     };
@@ -86,22 +85,18 @@ export class DiagramAiPromptComponent implements OnInit, OnDestroy {
       }
       
       if (finalTranscript) {
-        console.log('🎤 Texto reconocido:', finalTranscript);
         this.lastRecognizedText = finalTranscript.trim();
       }
     };
 
     this.recognition.onerror = (event: any) => {
-      console.error('🎤 Error en reconocimiento de voz:', event.error);
       this.error = `Error de reconocimiento: ${event.error}`;
       this.isListening = false;
     };
 
     this.recognition.onend = () => {
-      console.log('🎤 Reconocimiento de voz terminado');
       this.isListening = false;
       
-      // Si hay texto reconocido, procesarlo
       if (this.lastRecognizedText && !this.isProcessing) {
         this.processVoiceCommand();
       }
@@ -128,7 +123,6 @@ export class DiagramAiPromptComponent implements OnInit, OnDestroy {
     try {
       this.recognition.start();
     } catch (error) {
-      console.error('🎤 Error iniciando reconocimiento:', error);
       this.error = 'Error al iniciar el reconocimiento de voz';
     }
   }
@@ -153,13 +147,9 @@ export class DiagramAiPromptComponent implements OnInit, OnDestroy {
     this.isProcessing = true;
     this.error = '';
 
-    console.log('🤖 Procesando comando de voz:', this.lastRecognizedText);
-
     this.aiService.processVoiceCommand(this.diagramSnapshot, this.lastRecognizedText)
       .subscribe({
         next: (response: UMLSuggestionsResponse) => {
-          console.log('🤖 Respuesta de comando de voz:', response);
-          
           this.lastResponse = {
             success: true,
             message: response.summary || 'Comando procesado exitosamente',
@@ -169,11 +159,9 @@ export class DiagramAiPromptComponent implements OnInit, OnDestroy {
           
           this.isProcessing = false;
           
-          // Mostrar feedback de éxito
           this.showSuccessFeedback(`Comando ejecutado: "${this.lastRecognizedText}"`);
         },
-        error: (error) => {
-          console.error('🤖 Error procesando comando de voz:', error);
+        error: () => {
           this.error = 'Error procesando el comando. Inténtalo de nuevo.';
           this.isProcessing = false;
         }
@@ -254,13 +242,13 @@ export class DiagramAiPromptComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Obtiene el ícono del estado actual
+   * Get CSS icon class for current status
    */
   getCurrentStatusIcon(): string {
-    if (this.isListening) return '🎤';
-    if (this.isProcessing) return '🤖';
-    if (this.hasChangesToApply()) return '✨';
-    if (this.error) return '❌';
-    return '🎙️';
+    if (this.isListening) return 'pi pi-microphone';
+    if (this.isProcessing) return 'pi pi-spin pi-spinner';
+    if (this.hasChangesToApply()) return 'pi pi-check-circle';
+    if (this.error) return 'pi pi-exclamation-triangle';
+    return 'pi pi-volume-up';
   }
 }

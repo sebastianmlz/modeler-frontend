@@ -1,16 +1,17 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 
+/**
+ * HTTP interceptor to add authorization headers to API requests
+ */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const token = localStorage.getItem('access');
-  console.log('[AuthInterceptor] URL:', req.url);
-  console.log('[AuthInterceptor] Token encontrado:', token ? 'SÍ' : 'NO');
-  // No agregar Authorization si es Gemini API
+  
+  // Skip authorization for external APIs (e.g., Gemini)
   if (req.url.startsWith('https://generativelanguage.googleapis.com')) {
-    console.log('[AuthInterceptor] 🚫 No se agrega Authorization para Gemini API');
     return next(req);
   }
+  
   if (token) {
-    console.log('[AuthInterceptor] Agregando header Authorization');
     const authReq = req.clone({
       setHeaders: {
         Authorization: `Bearer ${token}`
@@ -18,6 +19,6 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     });
     return next(authReq);
   }
-  console.log('[AuthInterceptor] ⚠️ Petición sin token de autenticación');
+  
   return next(req);
 };

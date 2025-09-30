@@ -9,6 +9,8 @@
 	@apply shadow hover:shadow-lg transition duration-150;
 }
 
+/* Estilos específicos del componente diagram-show */
+
 /* Animación de spinner para loading */
 @keyframes spin {
 	0% { transform: rotate(0deg); }

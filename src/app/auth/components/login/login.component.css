@@ -1,0 +1,34 @@
+/* Animaciones y transiciones personalizadas */
+.fade-in {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mejoras visuales para inputs */
+input:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Animación del botón */
+button:hover:not(:disabled) {
+  box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+/* Estilos para el enlace de registro */
+a:hover {
+  text-decoration: underline;
+}

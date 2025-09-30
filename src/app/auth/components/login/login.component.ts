@@ -1,9 +1,9 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AuthService } from '../../services/auth.service';
 import { Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -12,25 +12,41 @@ import { ButtonModule } from 'primeng/button';
   templateUrl: './login.component.html'
 })
 export class LoginComponent {
+  // Form properties
   username: string = '';
   password: string = '';
+  
+  // UI state properties
   loading: boolean = false;
   error: string = '';
 
-  constructor(private auth: AuthService, private router: Router) {}
+  constructor(
+    private auth: AuthService,
+    private router: Router
+  ) {}
 
+  /**
+   * Handles login form submission
+   */
   onSubmit(): void {
     this.loading = true;
     this.error = '';
+    
     this.auth.login(this.username, this.password).subscribe({
       next: () => {
         this.loading = false;
-        // Redirección ya se maneja en el servicio
       },
       error: (err: any) => {
         this.loading = false;
-        this.error = err?.error?.message || 'Login failed';
+        this.error = err?.error?.message || 'Error de inicio de sesión';
       }
     });
+  }
+
+  /**
+   * Navigate to register page
+   */
+  goToRegister(): void {
+    this.router.navigate(['/register']);
   }
 }

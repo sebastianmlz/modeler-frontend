@@ -280,75 +280,294 @@ REGLAS DEL PROYECTO:
   private parseBackendCodeStructure(backendCode: string): any {
     // Extraer información estructurada del código
     const structure = {
-      projectSummary: {
-        totalFiles: 0,
-        entities: [] as string[],
-        repositories: [] as string[],
-        services: [] as string[],
-        controllers: [] as string[],
-        dtos: [] as string[]
+      project: {
+        name: this.extractProjectName(backendCode),
+        framework: 'Spring Boot 3.2.5',
+        javaVersion: 'Java 21'
       },
-      architecture: {
-        pattern: 'Spring Boot REST API',
-        layers: ['Entity', 'Repository', 'Service', 'Controller', 'DTO'],
-        database: 'H2 Database (embedded)',
-        documentation: 'OpenAPI/Swagger'
+      entities: [] as any[],
+      repositories: [] as any[],
+      services: [] as any[],
+      controllers: [] as any[],
+      dtos: {
+        requests: [] as any[],
+        responses: [] as any[]
       },
-      codeDetails: [] as any[]
+      mappers: [] as any[],
+      summary: {
+        totalEntities: 0,
+        totalControllers: 0,
+        totalServices: 0,
+        totalRepositories: 0,
+        totalDtos: 0
+      }
     };
 
-    // Dividir el código en secciones más manejables
-    const sections = backendCode.split(/=== .+ ===/);
-    
-    sections.forEach(section => {
-      if (section.trim()) {
-        const lines = section.split('\n');
-        const firstMeaningfulLine = lines.find(line => line.trim() && !line.startsWith('//'));
-        
-        if (firstMeaningfulLine) {
-          // Identificar tipo de archivo
-          let fileType = 'unknown';
-          let fileName = 'unknown';
-          
-          if (section.includes('@Entity')) {
-            fileType = 'entity';
-            const match = firstMeaningfulLine.match(/class (\w+)/);
-            fileName = match ? match[1] : 'Entity';
-            structure.projectSummary.entities.push(fileName);
-          } else if (section.includes('@Repository')) {
-            fileType = 'repository';
-            const match = firstMeaningfulLine.match(/interface (\w+)/);
-            fileName = match ? match[1] : 'Repository';
-            structure.projectSummary.repositories.push(fileName);
-          } else if (section.includes('@Service')) {
-            fileType = 'service';
-            const match = firstMeaningfulLine.match(/class (\w+)/);
-            fileName = match ? match[1] : 'Service';
-            structure.projectSummary.services.push(fileName);
-          } else if (section.includes('@RestController')) {
-            fileType = 'controller';
-            const match = firstMeaningfulLine.match(/class (\w+)/);
-            fileName = match ? match[1] : 'Controller';
-            structure.projectSummary.controllers.push(fileName);
-          } else if (section.includes('Request') || section.includes('Response')) {
-            fileType = 'dto';
-            const match = firstMeaningfulLine.match(/class (\w+)/);
-            fileName = match ? match[1] : 'DTO';
-            structure.projectSummary.dtos.push(fileName);
-          }
+    // Extraer todas las entidades
+    structure.entities = this.extractAllEntities(backendCode);
+    structure.repositories = this.extractAllRepositories(backendCode);
+    structure.services = this.extractAllServices(backendCode);
+    structure.controllers = this.extractAllControllers(backendCode);
+    structure.dtos.requests = this.extractAllDtoRequests(backendCode);
+    structure.dtos.responses = this.extractAllDtoResponses(backendCode);
+    structure.mappers = this.extractAllMappers(backendCode);
 
-          structure.codeDetails.push({
-            type: fileType,
-            name: fileName,
-            preview: this.extractCodePreview(section),
-            keyFeatures: this.extractKeyFeatures(section, fileType)
-          });
-        }
+    // Actualizar contadores
+    structure.summary.totalEntities = structure.entities.length;
+    structure.summary.totalControllers = structure.controllers.length;
+    structure.summary.totalServices = structure.services.length;
+    structure.summary.totalRepositories = structure.repositories.length;
+    structure.summary.totalDtos = structure.dtos.requests.length + structure.dtos.responses.length;
+    return structure;
+  }
+
+  /**
+   * Extrae el nombre del proyecto del código
+   */
+  private extractProjectName(backendCode: string): string {
+    const match = backendCode.match(/PROYECTO:\s*(\w+)/);
+    return match ? match[1] : 'Backend Project';
+  }
+
+  /**
+   * Extrae todas las entidades del código
+   */
+  private extractAllEntities(backendCode: string): any[] {
+    const entities: any[] = [];
+    const entityMatches = backendCode.match(/\/\/ (\w+)\.java - ENTIDAD JPA[\s\S]*?(?=\/\/ \w+\.java|===|$)/g);
+    
+    entityMatches?.forEach(match => {
+      const nameMatch = match.match(/\/\/ (\w+)\.java/);
+      if (nameMatch) {
+        entities.push({
+          name: nameMatch[1],
+          attributes: this.extractEntityAttributes(match),
+          relationships: this.extractEntityRelationships(match)
+        });
       }
     });
+    
+    return entities;
+  }
 
-    structure.projectSummary.totalFiles = structure.codeDetails.length;
-    return structure;
+  /**
+   * Extrae todos los repositorios del código
+   */
+  private extractAllRepositories(backendCode: string): any[] {
+    const repositories: any[] = [];
+    const repoMatches = backendCode.match(/\/\/ (\w+Repository)\.java[\s\S]*?(?=\/\/ \w+Repository|===|$)/g);
+    
+    repoMatches?.forEach(match => {
+      const nameMatch = match.match(/\/\/ (\w+Repository)\.java/);
+      if (nameMatch) {
+        repositories.push({
+          name: nameMatch[1],
+          entityName: nameMatch[1].replace('Repository', '')
+        });
+      }
+    });
+    
+    return repositories;
+  }
+
+  /**
+   * Extrae todos los servicios del código
+   */
+  private extractAllServices(backendCode: string): any[] {
+    const services: any[] = [];
+    const serviceMatches = backendCode.match(/\/\/ (\w+Service)[^\\n]*SERVICIO[\s\S]*?(?=\/\/ \w+Service|===|$)/g);
+    
+    serviceMatches?.forEach(match => {
+      const nameMatch = match.match(/\/\/ (\w+Service)/);
+      if (nameMatch) {
+        services.push({
+          name: nameMatch[1],
+          entityName: nameMatch[1].replace('Service', ''),
+          methods: this.extractServiceMethods(match)
+        });
+      }
+    });
+    
+    return services;
+  }
+
+  /**
+   * Extrae todos los controladores del código
+   */
+  private extractAllControllers(backendCode: string): any[] {
+    const controllers: any[] = [];
+    const controllerMatches = backendCode.match(/\/\/ (\w+Controller)[^\\n]*CONTROLADOR[\s\S]*?(?=\/\/ \w+Controller|===|$)/g);
+    
+    controllerMatches?.forEach(match => {
+      const nameMatch = match.match(/\/\/ (\w+Controller)/);
+      if (nameMatch) {
+        controllers.push({
+          name: nameMatch[1],
+          entityName: nameMatch[1].replace('Controller', ''),
+          basePath: this.extractBasePath(match),
+          endpoints: this.extractControllerEndpoints(match)
+        });
+      }
+    });
+    
+    return controllers;
+  }
+
+  /**
+   * Extrae todos los DTOs Request del código
+   */
+  private extractAllDtoRequests(backendCode: string): any[] {
+    const dtos: any[] = [];
+    const dtoMatches = backendCode.match(/\/\/ (\w+Request)\.java - DTO REQUEST[\s\S]*?(?=\/\/ \w+Request|===|$)/g);
+    
+    dtoMatches?.forEach(match => {
+      const nameMatch = match.match(/\/\/ (\w+Request)\.java/);
+      if (nameMatch) {
+        dtos.push({
+          name: nameMatch[1],
+          entityName: nameMatch[1].replace('Request', ''),
+          fields: this.extractDtoFields(match)
+        });
+      }
+    });
+    
+    return dtos;
+  }
+
+  /**
+   * Extrae todos los DTOs Response del código
+   */
+  private extractAllDtoResponses(backendCode: string): any[] {
+    const dtos: any[] = [];
+    const dtoMatches = backendCode.match(/\/\/ (\w+Response)\.java - DTO RESPONSE[\s\S]*?(?=\/\/ \w+Response|===|$)/g);
+    
+    dtoMatches?.forEach(match => {
+      const nameMatch = match.match(/\/\/ (\w+Response)\.java/);
+      if (nameMatch) {
+        dtos.push({
+          name: nameMatch[1],
+          entityName: nameMatch[1].replace('Response', ''),
+          fields: this.extractDtoFields(match)
+        });
+      }
+    });
+    
+    return dtos;
+  }
+
+  /**
+   * Extrae todos los Mappers del código
+   */
+  private extractAllMappers(backendCode: string): any[] {
+    const mappers: any[] = [];
+    const mapperMatches = backendCode.match(/\/\/ (\w+Mapper)\.java - MAPPER[\s\S]*?(?=\/\/ \w+Mapper|===|$)/g);
+    
+    mapperMatches?.forEach(match => {
+      const nameMatch = match.match(/\/\/ (\w+Mapper)\.java/);
+      if (nameMatch) {
+        mappers.push({
+          name: nameMatch[1],
+          entityName: nameMatch[1].replace('Mapper', '')
+        });
+      }
+    });
+    
+    return mappers;
+  }
+
+  /**
+   * Extrae atributos de una entidad
+   */
+  private extractEntityAttributes(entityCode: string): string[] {
+    const attributes: string[] = [];
+    const attributeMatches = entityCode.match(/@Column[\s\S]*?private\s+(\w+)\s+(\w+);/g);
+    
+    attributeMatches?.forEach(match => {
+      const fieldMatch = match.match(/private\s+(\w+)\s+(\w+);/);
+      if (fieldMatch) {
+        attributes.push(`${fieldMatch[2]} (${fieldMatch[1]})`);
+      }
+    });
+    
+    return attributes;
+  }
+
+  /**
+   * Extrae relaciones de una entidad
+   */
+  private extractEntityRelationships(entityCode: string): string[] {
+    const relationships: string[] = [];
+    const relationMatches = entityCode.match(/@(OneToMany|ManyToOne|ManyToMany|OneToOne)[\s\S]*?private\s+[\w\.<>]+\s+(\w+);/g);
+    
+    relationMatches?.forEach(match => {
+      const typeMatch = match.match(/@(OneToMany|ManyToOne|ManyToMany|OneToOne)/);
+      const fieldMatch = match.match(/private\s+[\w\.<>]+\s+(\w+);/);
+      if (typeMatch && fieldMatch) {
+        relationships.push(`${typeMatch[1]} con ${fieldMatch[1]}`);
+      }
+    });
+    
+    return relationships;
+  }
+
+  /**
+   * Extrae métodos de servicio
+   */
+  private extractServiceMethods(serviceCode: string): string[] {
+    const methods: string[] = [];
+    const methodMatches = serviceCode.match(/public\s+\w+\s+(\w+)\(/g);
+    
+    methodMatches?.forEach(match => {
+      const methodMatch = match.match(/public\s+\w+\s+(\w+)\(/);
+      if (methodMatch) {
+        methods.push(methodMatch[1]);
+      }
+    });
+    
+    return methods;
+  }
+
+  /**
+   * Extrae endpoints de controlador
+   */
+  private extractControllerEndpoints(controllerCode: string): string[] {
+    const endpoints: string[] = [];
+    const endpointMatches = controllerCode.match(/@(GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping)[\s\S]*?public\s+[\w<>]+\s+(\w+)\(/g);
+    
+    endpointMatches?.forEach(match => {
+      const httpMethod = match.match(/@(GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping)/);
+      const methodName = match.match(/public\s+[\w<>]+\s+(\w+)\(/);
+      if (httpMethod && methodName) {
+        endpoints.push(`${httpMethod[1].replace('Mapping', '').toUpperCase()} - ${methodName[1]}`);
+      }
+    });
+    
+    return endpoints;
+  }
+
+  /**
+   * Extrae la ruta base del controlador
+   */
+  private extractBasePath(controllerCode: string): string {
+    const match = controllerCode.match(/@RequestMapping\("([^"]+)"\)/);
+    return match ? match[1] : '/api';
+  }
+
+  /**
+   * Extrae campos de DTO
+   */
+  private extractDtoFields(dtoCode: string): string[] {
+    const fields: string[] = [];
+    const fieldMatches = dtoCode.match(/private\s+(\w+)\s+(\w+);/g);
+    
+    fieldMatches?.forEach(match => {
+      const fieldMatch = match.match(/private\s+(\w+)\s+(\w+);/);
+      if (fieldMatch) {
+        fields.push(`${fieldMatch[2]} (${fieldMatch[1]})`);
+      }
+    });
+    
+    return fields;
   }
 
   /**
@@ -409,56 +628,251 @@ REGLAS DEL PROYECTO:
    * Construye un prompt optimizado para generar documentación técnica
    */
   private buildDocumentationPrompt(structuredData: any, projectName: string): string {
+    const entitiesInfo = structuredData.entities?.map((entity: any) => 
+      `- ${entity.name}: ${entity.attributes?.length || 0} atributos, ${entity.relationships?.length || 0} relaciones`
+    ).join('\n') || 'No hay entidades';
+    
+    const controllersInfo = structuredData.controllers?.map((controller: any) => 
+      `- ${controller.name}: ${controller.endpoints?.length || 0} endpoints en ${controller.basePath}`
+    ).join('\n') || 'No hay controladores';
+
     return `
-Eres un experto en documentación técnica de software. Tu tarea es generar una documentación técnica completa y profesional para un proyecto Spring Boot generado automáticamente desde un diagrama UML.
+Eres un experto en documentación técnica de software. Tu tarea es crear una documentación técnica completa y profesional para un proyecto Spring Boot usando EXACTAMENTE la estructura que te proporcionaré.
 
 === INFORMACIÓN DEL PROYECTO ===
-Nombre: ${projectName}
-Tipo: Backend Spring Boot REST API
-Generado: Automáticamente desde diagrama UML
+Nombre: ${structuredData.project?.name || projectName}
+Framework: ${structuredData.project?.framework || 'Spring Boot 3.2.5'}
+Java: ${structuredData.project?.javaVersion || 'Java 21'}
+Arquitectura: API REST con patrón de capas
+Base de datos: H2 Database (embedded)
+Documentación API: OpenAPI/Swagger
 
-=== RESUMEN DE LA ARQUITECTURA ===
-Patrón: ${structuredData.architecture.pattern}
-Capas: ${structuredData.architecture.layers.join(', ')}
-Base de datos: ${structuredData.architecture.database}
-Documentación API: ${structuredData.architecture.documentation}
+=== COMPONENTES DETECTADOS ===
+Entidades JPA: ${structuredData.summary?.totalEntidades || 0} (${structuredData.entities?.map((e: any) => e.name).join(', ')})
+Repositorios: ${structuredData.summary?.totalRepositories || 0}
+Servicios: ${structuredData.summary?.totalServices || 0}
+Controladores REST: ${structuredData.summary?.totalControllers || 0}
+DTOs: ${structuredData.summary?.totalDtos || 0}
+Mappers: ${structuredData.mappers?.length || 0}
 
-=== ESTADÍSTICAS DEL CÓDIGO ===
-Total de archivos: ${structuredData.projectSummary.totalFiles}
-Entidades: ${structuredData.projectSummary.entities.length} (${structuredData.projectSummary.entities.join(', ')})
-Repositorios: ${structuredData.projectSummary.repositories.length} (${structuredData.projectSummary.repositories.join(', ')})
-Servicios: ${structuredData.projectSummary.services.length} (${structuredData.projectSummary.services.join(', ')})
-Controladores: ${structuredData.projectSummary.controllers.length} (${structuredData.projectSummary.controllers.join(', ')})
-DTOs: ${structuredData.projectSummary.dtos.length} (${structuredData.projectSummary.dtos.join(', ')})
+=== DATOS ESTRUCTURADOS PARA PROCESAR ===
+ENTIDADES: ${JSON.stringify(structuredData.entities, null, 2)}
+CONTROLADORES: ${JSON.stringify(structuredData.controllers, null, 2)}
+SERVICIOS: ${JSON.stringify(structuredData.services, null, 2)}
+REPOSITORIOS: ${JSON.stringify(structuredData.repositories, null, 2)}
+DTOS REQUEST: ${JSON.stringify(structuredData.dtos?.requests, null, 2)}
+DTOS RESPONSE: ${JSON.stringify(structuredData.dtos?.responses, null, 2)}
+MAPPERS: ${JSON.stringify(structuredData.mappers, null, 2)}
 
-=== DETALLES DE COMPONENTES ===
-${structuredData.codeDetails.map((detail: any) => `
-**${detail.name}** (${detail.type.toUpperCase()})
-Características: ${detail.keyFeatures.join(', ')}
-Vista previa del código:
-${detail.preview}
-`).join('\n')}
+=== ESTRUCTURA EXACTA A SEGUIR ===
+# Documentación del Backend: ${structuredData.project?.name || projectName}
 
-=== INSTRUCCIONES PARA LA DOCUMENTACIÓN ===
-Genera una documentación técnica completa que incluya:
+## 1. Introducción
 
-1. **Resumen Ejecutivo**: Descripción general del proyecto y su propósito
-2. **Arquitectura del Sistema**: Explicación de la arquitectura por capas implementada
-3. **Modelo de Datos**: Descripción de las entidades y sus relaciones
-4. **API REST**: Documentación de los endpoints disponibles
-5. **Configuración**: Detalles de configuración de base de datos y aplicación
-6. **Instalación y Ejecución**: Pasos para instalar y ejecutar el proyecto
-7. **Estructura de Archivos**: Organización del código fuente
-8. **Consideraciones Técnicas**: Patrones utilizados y mejores prácticas aplicadas
+Backend REST API desarrollado con Spring Boot 3.2.5 y Java 21, generado automáticamente desde un diagrama UML. Implementa una arquitectura por capas con patrón MVC y operaciones CRUD completas.
 
-FORMATO DE RESPUESTA:
-- Utiliza markdown para el formato
-- Sé específico y técnico pero comprensible
-- Incluye ejemplos cuando sea apropiado
-- Organiza la información de manera lógica y profesional
-- La documentación debe ser útil tanto para desarrolladores como para stakeholders técnicos
+**Tecnologías Utilizadas:**
+- Spring Boot 3.2.5
+- Spring Data JPA
+- Spring Web MVC
+- Base de datos H2 (desarrollo)
+- OpenAPI/Swagger para documentación
+- Maven como gestor de dependencias
 
-IMPORTANTE: Responde SOLO con el contenido de la documentación en markdown, sin bloques de código adicionales ni explicaciones fuera del documento.`;
+**Arquitectura:**
+- **Controladores REST:** Manejan las peticiones HTTP y respuestas
+- **Servicios:** Contienen la lógica de negocio y transacciones
+- **Repositorios:** Acceso a datos con Spring Data JPA
+- **Entidades:** Modelos de datos con anotaciones JPA
+- **DTOs:** Objetos de transferencia de datos para requests/responses
+- **Mappers:** Conversión entre entidades y DTOs
+
+## 2. Estructura del Proyecto
+
+\`\`\`
+${structuredData.project?.name || 'backend-spring-boot'}/
+├── pom.xml
+├── README.md
+└── src/
+    ├── main/
+    │   ├── java/
+    │   │   └── [paquete.base]/
+    │   │       ├── Application.java
+    │   │       ├── controller/
+    │   │       │   ├── [Entidad]Controller.java
+    │   │       │   └── [...]Controller.java
+    │   │       ├── service/
+    │   │       │   ├── [Entidad]Service.java
+    │   │       │   └── [...]Service.java
+    │   │       ├── repository/
+    │   │       │   ├── [Entidad]Repository.java
+    │   │       │   └── [...]Repository.java
+    │   │       ├── entity/
+    │   │       │   ├── [Entidad].java
+    │   │       │   └── [...].java
+    │   │       ├── dto/
+    │   │       │   ├── [Entidad]Request.java
+    │   │       │   ├── [Entidad]Response.java
+    │   │       │   └── [...]DTO.java
+    │   │       └── mapper/
+    │   │           ├── [Entidad]Mapper.java
+    │   │           └── [...]Mapper.java
+    │   └── resources/
+    │       └── application.yml
+    └── test/
+\`\`\`
+
+## 3. Entidades JPA
+
+[PARA CADA ENTIDAD en structuredData.entities, crear una subsección 3.X]
+
+### 3.X [NombreEntidad]
+
+**Descripción:** [Propósito de la entidad basado en sus atributos y relaciones]
+
+**Tabla de Base de Datos:** \`[nombre_tabla_snake_case]\`
+
+**Atributos:**
+
+| Campo | Tipo Java | Tipo BD | Descripción | Anotaciones JPA |
+|-------|-----------|---------|-------------|-----------------|
+| [Para cada atributo en entity.attributes, crear fila] |
+
+**Relaciones:**
+- [Para cada relación en entity.relationships, describir detalladamente]
+
+## 4. Repositorios JPA
+
+[PARA CADA REPOSITORIO en structuredData.repositories, crear una subsección 4.X]
+
+### 4.X [NombreEntidad]Repository
+
+**Extends:** JpaRepository<[Entidad], Long>
+
+**Funcionalidad:** Acceso a datos para la entidad [NombreEntidad] con operaciones CRUD automáticas.
+
+**Métodos Heredados:**
+- \`List<[Entidad]> findAll()\` - Listar todos los registros
+- \`Optional<[Entidad]> findById(Long id)\` - Buscar por ID
+- \`<S extends [Entidad]> S save(S entity)\` - Guardar o actualizar
+- \`void deleteById(Long id)\` - Eliminar por ID
+- \`long count()\` - Contar registros
+- \`boolean existsById(Long id)\` - Verificar existencia
+
+## 5. Servicios (Lógica de Negocio)
+
+[PARA CADA SERVICIO en structuredData.services, crear una subsección 5.X]
+
+### 5.X [NombreEntidad]Service
+
+**Anotaciones:** @Service, @Transactional
+
+**Dependencias Inyectadas:**
+- [NombreEntidad]Repository
+- [NombreEntidad]Mapper
+
+**Operaciones CRUD Implementadas:**
+
+| Método | Parámetros | Retorno | Descripción | Transaccional |
+|--------|------------|---------|-------------|---------------|
+| [Para cada método en service.methods, crear fila] |
+
+## 6. DTOs (Data Transfer Objects)
+
+[PARA CADA ENTIDAD que tenga DTOs, crear una subsección 6.X]
+
+### 6.X [NombreEntidad] DTOs
+
+#### Request DTO
+**Propósito:** Recibir datos del cliente para crear/actualizar entidades
+**Campos:** [Listar campos de structuredData.dtos.requests para esta entidad]
+
+#### Response DTO
+**Propósito:** Enviar datos al cliente como respuesta
+**Campos:** [Listar campos de structuredData.dtos.responses para esta entidad]
+
+#### Mapper
+**Propósito:** Convertir entre entidades y DTOs
+
+## 7. Controladores REST
+
+[PARA CADA CONTROLADOR en structuredData.controllers, crear una subsección 7.X]
+
+### 7.X [NombreEntidad]Controller
+
+**Base Path:** \`[BasePath del controlador]\`
+**Anotaciones:** @RestController, @RequestMapping
+
+**Endpoints Disponibles:**
+
+| Método HTTP | Endpoint | Descripción | Request Body | Response Status | Response Body |
+|-------------|----------|-------------|--------------|-----------------|---------------|
+| [Para cada endpoint en controller.endpoints, crear fila] |
+
+**Ejemplos de Uso:**
+
+**POST** /api/[recurso]
+\`\`\`json
+{
+  [Ejemplo basado en los campos del Request DTO real]
+}
+\`\`\`
+
+**GET** /api/[recurso]/{id} - Response:
+\`\`\`json
+{
+  [Ejemplo basado en los campos del Response DTO real]
+}
+\`\`\`
+
+## 8. Configuración del Proyecto
+
+### 8.1 Dependencias Maven (pom.xml)
+[Mencionar las dependencias principales de Spring Boot]
+
+### 8.2 Configuración de la Aplicación (application.yml)
+[Configuración típica de H2 y JPA]
+
+### 8.3 Clase Principal de Spring Boot
+[Configuración básica de @SpringBootApplication]
+
+## 9. Diagrama Entidad-Relación
+
+\`\`\`
+[Crear diagrama ERD textual basado en las relaciones encontradas en structuredData.entities]
+\`\`\`
+
+## 10. Guía de Ejecución
+
+1. **Prerrequisitos:** Java 21, Maven 3.9+
+2. **Compilar:** \`mvn clean compile\`
+3. **Ejecutar:** \`mvn spring-boot:run\`
+4. **Swagger UI:** http://localhost:8080/swagger-ui.html
+5. **Base de datos H2:** http://localhost:8080/h2-console
+
+## 11. Próximos Pasos
+
+1. **Validación:** Agregar @Valid y anotaciones de validación en DTOs
+2. **Manejo de Errores:** Implementar @ControllerAdvice para excepciones globales
+3. **Seguridad:** Integrar Spring Security para autenticación/autorización
+4. **Testing:** Crear tests unitarios para servicios y controladores
+5. **Persistencia:** Migrar de H2 a PostgreSQL/MySQL para producción
+6. **Monitoreo:** Configurar Spring Boot Actuator
+7. **Cache:** Implementar cache con Spring Cache
+8. **Logging:** Configurar Logback estructurado
+
+=== INSTRUCCIONES CRÍTICAS ===
+1. DEBES procesar TODAS las entidades en structuredData.entities (${structuredData.entities?.map((e: any) => e.name).join(', ')})
+2. DEBES crear una subsección numerada para CADA entidad, controlador, servicio, repositorio
+3. DEBES usar la estructura EXACTA que te proporcioné arriba
+4. NO omitas ningún componente
+5. Mantén el formato markdown profesional
+6. Incluye tablas detalladas donde se especifica
+7. Genera ejemplos JSON realistas basados en los DTOs reales
+8. Describe las relaciones entre entidades de forma clara y técnica
+
+Genera la documentación completa siguiendo EXACTAMENTE esta estructura:
+`;
   }
 
   /**
@@ -471,11 +885,9 @@ IMPORTANTE: Responde SOLO con el contenido de la documentación en markdown, sin
       // Remover marcas de código markdown si existen
       responseText = responseText.replace(/```markdown\n?/g, '').replace(/```\n?/g, '').trim();
       
-      console.log('📖 Documentación generada por IA');
       
       return responseText || 'No se pudo generar la documentación técnica.';
     } catch (error) {
-      console.error('Error parseando documentación de IA:', error);
       return 'Error al procesar la documentación generada por la IA.';
     }
   }
@@ -491,7 +903,6 @@ IMPORTANTE: Responde SOLO con el contenido de la documentación en markdown, sin
       // Remover marcas de código markdown si existen
       responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       
-      console.log('🤖 Texto limpio de la IA:', responseText);
       
       // Intentar parsear como JSON
       const parsedResponse = JSON.parse(responseText);
@@ -502,8 +913,6 @@ IMPORTANTE: Responde SOLO con el contenido de la documentación en markdown, sin
         summary: parsedResponse.summary || 'Análisis completado'
       };
     } catch (error) {
-      console.error('Error parseando respuesta de IA:', error);
-      console.error('Texto original:', response?.candidates?.[0]?.content?.parts?.[0]?.text);
       return {
         suggestions: [],
         summary: 'Error al procesar las sugerencias de la IA'

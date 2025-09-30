@@ -1,0 +1,81 @@
+/* Animaciones y transiciones personalizadas */
+.fade-in {
+  animation: fadeIn 0.6s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mejoras visuales para inputs */
+input:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  outline: none;
+}
+
+input[name="display_name"]:focus {
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+/* Animación del botón de registro */
+button:hover:not(:disabled) {
+  box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+/* Animación para mensajes de éxito */
+.success-message {
+  animation: slideInFromTop 0.5s ease-out;
+}
+
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Estilos para mensajes de error */
+.error-message {
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 20%, 40%, 60%, 80% {
+    transform: translateX(-2px);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(2px);
+  }
+}
+
+/* Estilos para el enlace de login */
+a:hover {
+  text-decoration: underline;
+}
+
+/* Mejoras para campos requeridos */
+label .text-red-500 {
+  font-weight: bold;
+}
+
+/* Grid responsive mejorado */
+@media (max-width: 640px) {
+  .grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+}

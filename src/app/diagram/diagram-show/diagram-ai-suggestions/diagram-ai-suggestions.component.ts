@@ -11,21 +11,26 @@ import { Subscription, interval } from 'rxjs';
 })
 export class DiagramAiSuggestionsComponent implements OnInit, OnDestroy {
   
+  // Input properties
   @Input() diagramSnapshot: any = null;
-  @Input() autoRefreshInterval: number = 15000; // 15 segundos por defecto
+  @Input() autoRefreshInterval: number = 15000;
+  
+  // Output events
   @Output() applySuggestion = new EventEmitter<UMLSuggestion>();
   @Output() applyAllSuggestions = new EventEmitter<UMLSuggestionsResponse>();
 
+  // Data properties
   suggestions: UMLSuggestion[] = [];
-  isLoading: boolean = false;
-  error: string = '';
   summary: string = '';
   lastAnalyzedSnapshot: string = '';
   
-  // Feedback visual
+  // UI state properties
+  isLoading: boolean = false;
+  error: string = '';
   successMessage: string = '';
   showSuccess: boolean = false;
   
+  // Private properties
   private autoRefreshSubscription?: Subscription;
   private successTimeout?: any;
 
@@ -94,7 +99,7 @@ export class DiagramAiSuggestionsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Genera sugerencias usando la IA
+   * Generate AI suggestions for the current diagram
    */
   generateSuggestions(): void {
     if (!this.diagramSnapshot || this.isLoading) {
@@ -111,8 +116,7 @@ export class DiagramAiSuggestionsComponent implements OnInit, OnDestroy {
         this.lastAnalyzedSnapshot = JSON.stringify(this.diagramSnapshot);
         this.isLoading = false;
       },
-      error: (error) => {
-        console.error('Error generando sugerencias:', error);
+      error: () => {
         this.error = 'Error al generar sugerencias. Inténtalo de nuevo.';
         this.isLoading = false;
       }
@@ -151,15 +155,15 @@ export class DiagramAiSuggestionsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Obtiene el ícono para cada tipo de sugerencia
+   * Get CSS icon class for each suggestion type
    */
   getSuggestionIcon(type: string): string {
     switch (type) {
-      case 'attribute': return '🔧';
-      case 'relation': return '🔗';
-      case 'improvement': return '✨';
-      case 'warning': return '⚠️';
-      default: return '💡';
+      case 'attribute': return 'pi pi-cog';
+      case 'relation': return 'pi pi-link';
+      case 'improvement': return 'pi pi-star';
+      case 'warning': return 'pi pi-exclamation-triangle';
+      default: return 'pi pi-lightbulb';
     }
   }
 
@@ -191,18 +195,17 @@ export class DiagramAiSuggestionsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Muestra un mensaje de éxito temporal (método público para ser llamado externamente)
+   * Display temporary success feedback message
+   * @param message - Success message to display
    */
   public showSuccessFeedback(message: string): void {
     this.successMessage = message;
     this.showSuccess = true;
     
-    // Limpiar timeout anterior si existe
     if (this.successTimeout) {
       clearTimeout(this.successTimeout);
     }
     
-    // Ocultar mensaje después de 3 segundos
     this.successTimeout = setTimeout(() => {
       this.showSuccess = false;
       this.successMessage = '';

@@ -2,20 +2,20 @@
   <!-- Header -->
   <div class="suggestions-header">
     <div class="header-title">
-      <span class="title-icon">🤖</span>
+      <i class="pi pi-android title-icon"></i>
       <h3>Sugerencias de IA</h3>
     </div>
     <button 
       (click)="refreshSuggestions()" 
       [disabled]="isLoading || !diagramSnapshot"
       class="refresh-btn">
-      <span [class.spinning]="isLoading">🔄</span>
+      <i class="pi pi-refresh" [class.spinning]="isLoading"></i>
     </button>
   </div>
 
   <!-- Success Message -->
   <div *ngIf="showSuccess" class="success-state">
-    <span class="success-icon">✅</span>
+    <i class="pi pi-check-circle success-icon"></i>
     <p>{{ successMessage }}</p>
   </div>
 
@@ -27,20 +27,20 @@
 
   <!-- Error State -->
   <div *ngIf="error && !isLoading" class="error-state">
-    <span class="error-icon">❌</span>
+    <i class="pi pi-times-circle error-icon"></i>
     <p>{{ error }}</p>
     <button (click)="refreshSuggestions()" class="retry-btn">Reintentar</button>
   </div>
 
   <!-- Empty State -->
   <div *ngIf="!isLoading && !error && suggestions.length === 0 && hasValidContent()" class="empty-state">
-    <span class="empty-icon">✅</span>
+    <i class="pi pi-check empty-icon"></i>
     <p>¡Excelente! No hay sugerencias adicionales para tu diagrama.</p>
   </div>
 
   <!-- No Content State -->
   <div *ngIf="!isLoading && !error && !hasValidContent()" class="no-content-state">
-    <span class="empty-icon">📝</span>
+    <i class="pi pi-file-edit empty-icon"></i>
     <p>Crea algunas clases en tu diagrama para recibir sugerencias inteligentes.</p>
   </div>
 
@@ -58,7 +58,7 @@
       <button 
         (click)="onApplyAllSuggestions()" 
         class="apply-all-btn">
-        ✨ Aplicar todas las sugerencias ({{ suggestions.length }})
+        <i class="pi pi-star"></i> Aplicar todas las sugerencias ({{ suggestions.length }})
       </button>
     </div>
 
@@ -70,7 +70,7 @@
         [ngClass]="getSuggestionClass(suggestion.type)">
         
         <div class="suggestion-header">
-          <span class="suggestion-icon">{{ getSuggestionIcon(suggestion.type) }}</span>
+          <i [class]="getSuggestionIcon(suggestion.type) + ' suggestion-icon'"></i>
           <div class="suggestion-info">
             <h5 class="suggestion-title">{{ suggestion.title }}</h5>
             <span class="suggestion-type">{{ suggestion.type | titlecase }}</span>
@@ -102,7 +102,7 @@
   <div class="suggestions-footer">
     <small>
       <span *ngIf="lastAnalyzedSnapshot">
-        🕒 Última actualización: {{ getLastUpdateTime() }}
+        <i class="pi pi-clock"></i> Última actualización: {{ getLastUpdateTime() }}
       </span>
       <span *ngIf="autoRefreshInterval > 0">
         • Auto-refresh cada {{ autoRefreshInterval / 1000 }}s

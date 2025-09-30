@@ -10,3 +10,39 @@
     @tailwind utilities;
 }
 
+/* Estilos globales para ocultar elementos de licencia de Syncfusion en todo el proyecto */
+.syncfusion-license-error,
+div.syncfusion-license-error,
+[class*="syncfusion-license"],
+[class*="license-error"],
+div[class*="license"],
+[class*="trial"],
+div[class*="trial"] {
+    width: 0px !important;
+    height: 0px !important;
+    display: none !important;
+    visibility: hidden !important;
+    position: absolute !important;
+    top: -9999px !important;
+    left: -9999px !important;
+    opacity: 0 !important;
+    z-index: -1 !important;
+    overflow: hidden !important;
+}
+
+/* Ocultar controles de Syncfusion */
+.control-fluid {
+    padding: 0px !important;
+}
+
+.control-section {
+    height: 0px !important;
+}
+
+/* Ocultar cualquier div que contenga texto de licencia o trial */
+div:has([class*="license"]),
+div:has([class*="trial"]),
+div:has([class*="syncfusion"]) {
+    display: none !important;
+}
+

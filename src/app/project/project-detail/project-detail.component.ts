@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ProjectService } from '../project.service';
+import { DiagramService } from '../../diagram/diagram.service';
 
 @Component({
   selector: 'app-project-detail',
@@ -11,75 +12,130 @@ import { ProjectService } from '../project.service';
   styleUrl: './project-detail.component.css'
 })
 export class ProjectDetailComponent implements OnInit {
-  goToDiagramList(): void {
-    if (this.project?.id) {
-      // Pasar los datos de los diagramas que ya tenemos para evitar problemas de permisos
-      this.router.navigate(['/diagram/list'], { 
-        queryParams: { project: this.project.id },
-        state: {
-          diagrams: this.diagrams,
-          projectData: this.project,
-          fromProjectDetail: true
-        }
-      });
-    } else {
-      this.router.navigate(['/diagram/list']);
-    }
-  }
+  // Data properties
   project: any = null;
+  diagrams: any[] = [];
+  
+  // UI state properties
   loading: boolean = true;
   error: string = '';
-  diagrams: any[] = [];
 
   constructor(
     private route: ActivatedRoute,
     private projectService: ProjectService,
+    private diagramService: DiagramService,
     private router: Router
   ) {}
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     
-    // Verificar si tenemos datos del proyecto desde el dashboard
-    const navigationState = this.router.getCurrentNavigation()?.extras?.state || 
-                           (history.state?.projectData ? history.state : null);
-    
-    if (navigationState && navigationState.projectData && navigationState.fromDashboard) {
-      // Usar los datos que vienen del dashboard
-      console.log('[ProjectDetail] Usando datos del dashboard:', navigationState.projectData);
-      this.project = navigationState.projectData.project;
-      this.diagrams = navigationState.projectData.diagrams || [];
-      this.loading = false;
-    } else if (id) {
-      // Fallback: intentar cargar desde la API (para usuarios creadores)
-      console.log('[ProjectDetail] Cargando desde API...');
-      this.projectService.getProject(id).subscribe({
-        next: (proj) => {
-          this.project = proj;
-          // TODO: Reemplazar por llamada real a diagramas del proyecto
-          this.diagrams = [
-            { id: 'd1', name: 'Diagrama demo 1', created_at: '2025-09-14T15:00:00Z' },
-            { id: 'd2', name: 'Diagrama demo 2', created_at: '2025-09-13T12:30:00Z' }
-          ];
-          this.loading = false;
-        },
-        error: (err) => {
-          console.error('[ProjectDetail] Error al cargar proyecto:', err);
-          this.error = 'No se pudo cargar el proyecto. Es posible que no tengas permisos suficientes.';
-          this.loading = false;
-        }
-      });
-    } else {
+    if (!id) {
       this.error = 'ID de proyecto no válido.';
       this.loading = false;
+      return;
     }
+    
+    this.loadProjectData(id);
   }
 
+  /**
+   * Navigate to diagram list for this project
+   */
+  goToDiagramList(): void {
+    const projectId = this.project?.id;
+    const navigation = projectId 
+      ? ['/diagram/list']
+      : ['/diagram/list'];
+    const queryParams = projectId 
+      ? { queryParams: { project: projectId } }
+      : {};
+    
+    this.router.navigate(navigation, queryParams);
+  }
+
+  /**
+   * Navigate to diagram show page
+   */
   goToDiagramShow(diagramId: string): void {
     this.router.navigate(['/diagram/show', diagramId]);
   }
 
+  /**
+   * Navigate back to project list
+   */
   goBack(): void {
-    this.router.navigate(['/project'], { queryParams: { organization: this.project?.organization } });
+    this.router.navigate(['/project'], {
+      queryParams: { organization: this.project?.organization }
+    });
+  }
+
+  /**
+   * Load project data from navigation state or API
+   */
+  private loadProjectData(id: string): void {
+    const navigationState = this.getNavigationState();
+    
+    if (this.hasValidNavigationState(navigationState)) {
+      this.loadFromNavigationState(navigationState);
+    } else {
+      this.loadFromAPI(id);
+    }
+  }
+
+  /**
+   * Get navigation state from router or history
+   */
+  private getNavigationState(): any {
+    return this.router.getCurrentNavigation()?.extras?.state || 
+           (history.state?.projectData ? history.state : null);
+  }
+
+  /**
+   * Check if navigation state has valid project data
+   */
+  private hasValidNavigationState(state: any): boolean {
+    return state && state.projectData && state.fromDashboard;
+  }
+
+  /**
+   * Load project data from navigation state
+   */
+  private loadFromNavigationState(state: any): void {
+    this.project = state.projectData.project;
+    this.diagrams = state.projectData.diagrams || [];
+    this.loading = false;
+  }
+
+  /**
+   * Load project data from API
+   */
+  private loadFromAPI(id: string): void {
+    this.projectService.getProject(id).subscribe({
+      next: (proj) => {
+        this.project = proj;
+        this.loadDiagrams(proj.id);
+      },
+      error: () => {
+        this.error = 'No se pudo cargar el proyecto. Es posible que no tengas permisos suficientes.';
+        this.loading = false;
+      }
+    });
+  }
+
+  /**
+   * Load diagrams for the project
+   */
+  private loadDiagrams(projectId: string): void {
+    this.diagramService.getDiagrams(projectId).subscribe({
+      next: (res) => {
+        this.diagrams = res.results || [];
+        this.loading = false;
+      },
+      error: () => {
+        this.diagrams = [];
+        this.loading = false;
+      }
+    });
   }
 }
