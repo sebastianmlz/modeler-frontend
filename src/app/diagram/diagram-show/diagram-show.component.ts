@@ -860,6 +860,11 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
   joiningProject: boolean = false;
   projectId: string = '';
   private silenceInvitationErrors: boolean = false; // Para no mostrar errores HTTP esperados
+  
+  // === PROPIEDADES PARA MODAL DE INVITAR (URL) ===
+  showInviteUrlModal: boolean = false;
+  currentInviteUrl: string = '';
+  urlCopied: boolean = false;
 
   // Sincroniza los arrays de datos con los visuales antes de guardar
   syncDataFromVisuals() {
@@ -1138,6 +1143,64 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
   declineInvitation() {
     this.showInvitationModal = false;
     this.router.navigate(['/dashboard']);
+  }
+  
+  /**
+   * Muestra el modal para copiar la URL de invitación
+   */
+  showInviteModal() {
+    this.currentInviteUrl = window.location.href;
+    this.showInviteUrlModal = true;
+    this.urlCopied = false;
+  }
+  
+  /**
+   * Cierra el modal de invitación
+   */
+  closeInviteModal() {
+    this.showInviteUrlModal = false;
+    this.urlCopied = false;
+  }
+  
+  /**
+   * Copia la URL de invitación al portapapeles
+   */
+  copyInviteUrl(inputElement: HTMLInputElement) {
+    inputElement.select();
+    inputElement.setSelectionRange(0, 99999); // Para móviles
+    
+    try {
+      // Intenta usar la API moderna del portapapeles
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(this.currentInviteUrl).then(() => {
+          this.urlCopied = true;
+          setTimeout(() => this.urlCopied = false, 2000);
+        }).catch(() => {
+          // Fallback a execCommand si falla
+          this.fallbackCopyTextToClipboard(inputElement);
+        });
+      } else {
+        // Fallback para navegadores sin soporte para clipboard API
+        this.fallbackCopyTextToClipboard(inputElement);
+      }
+    } catch (err) {
+      console.error('Error al copiar:', err);
+    }
+  }
+  
+  /**
+   * Método de fallback para copiar texto
+   */
+  private fallbackCopyTextToClipboard(inputElement: HTMLInputElement) {
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        this.urlCopied = true;
+        setTimeout(() => this.urlCopied = false, 2000);
+      }
+    } catch (err) {
+      console.error('Fallback: Error al copiar:', err);
+    }
   }
 
     ngOnInit(): void {
