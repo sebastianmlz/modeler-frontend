@@ -1,7 +1,7 @@
 // Convierte un string a CamelCase (para nombres de clases y archivos Java)
 function toCamelCase(name: string): string {
   return name
-    .replace(/[^a-zA-Z0-9]+/g, ' ') // reemplaza guiones, guiones bajos, etc. por espacio
+    .replace(/[^a-zA-Z0-9]+/g, ' ') // reemplaza guiones, guiones bajos, espacios, etc. por espacio
     .split(' ')
     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
     .join('');
@@ -164,155 +164,10 @@ function generateMainApplicationJava(applicationClassName: string): string {
     `}\n`;
 }
 
-// Genera el código Java de un servicio con métodos CRUD usando repositorio y mapper
-function generateServiceCrudJava(entityName: string, basePackage?: string): string {
-  const pkg = basePackage || 'back';
-  return `import org.springframework.stereotype.Service;\n` +
-    `import org.springframework.transaction.annotation.Transactional;\n` +
-    `import java.util.List;\n` +
-    `import java.util.stream.Collectors;\n` +
-    `import ${pkg}.entity.${entityName};\n` +
-    `import ${pkg}.dto.${entityName}Request;\n` +
-    `import ${pkg}.dto.${entityName}Response;\n` +
-    `import ${pkg}.repository.${entityName}Repository;\n` +
-    `import ${pkg}.mapper.${entityName}Mapper;\n` +
-    `@Service\n` +
-    `public class ${entityName}Service {\n` +
-    `    private final ${entityName}Repository repository;\n` +
-    `    private final ${entityName}Mapper mapper;\n\n` +
-    `    public ${entityName}Service(${entityName}Repository repository, ${entityName}Mapper mapper) {\n` +
-    `        this.repository = repository;\n` +
-    `        this.mapper = mapper;\n` +
-    `    }\n\n` +
-    `    @Transactional\n` +
-    `    public void create(${entityName}Request request) {\n` +
-    `        var entity = mapper.toEntity(request);\n` +
-    `        repository.save(entity);\n` +
-    `    }\n\n` +
-    `    public ${entityName}Response getById(Long id) {\n` +
-    `        var entity = repository.findById(id).orElseThrow(() -> new RuntimeException(\"Not found\"));\n` +
-    `        return mapper.toResponse(entity);\n` +
-    `    }\n\n` +
-    `    public List<${entityName}Response> listAll() {\n` +
-    `        return repository.findAll().stream().map(mapper::toResponse).collect(Collectors.toList());\n` +
-    `    }\n\n` +
-    `    @Transactional\n` +
-    `    public void update(Long id, ${entityName}Request request) {\n` +
-    `        var entity = repository.findById(id).orElseThrow(() -> new RuntimeException(\"Not found\"));\n` +
-    `        // Actualizar campos desde el request\n` +
-    `        repository.save(entity);\n` +
-    `    }\n\n` +
-    `    @Transactional\n` +
-    `    public void delete(Long id) {\n` +
-    `        repository.deleteById(id);\n` +
-    `    }\n` +
-    `}\n`;
-}
 
-// Genera el código Java de un controlador REST CRUD usando DTOs y mappers
-function generateControllerCrudJava(entityName: string, basePackage?: string): string {
-  const lower = entityName.charAt(0).toLowerCase() + entityName.slice(1);
-  const pkg = basePackage || 'back';
-  return `import org.springframework.web.bind.annotation.*;\n` +
-    `import org.springframework.http.ResponseEntity;\n` +
-    `import java.util.List;\n` +
-    `import ${pkg}.dto.${entityName}Request;\n` +
-    `import ${pkg}.dto.${entityName}Response;\n` +
-    `import ${pkg}.service.${entityName}Service;\n` +
-    `@RestController\n` +
-    `@RequestMapping(\"/api/${lower}\")\n` +
-    `public class ${entityName}Controller {\n` +
-    `    private final ${entityName}Service service;\n\n` +
-    `    public ${entityName}Controller(${entityName}Service service) {\n` +
-    `        this.service = service;\n` +
-    `    }\n\n` +
-    `    @PostMapping\n` +
-    `    public ResponseEntity<Void> create(@RequestBody ${entityName}Request request) {\n` +
-    `        service.create(request);\n` +
-    `        return ResponseEntity.status(201).build();\n` +
-    `    }\n\n` +
-    `    @GetMapping(\"/{id}\")\n` +
-    `    public ResponseEntity<${entityName}Response> getById(@PathVariable Long id) {\n` +
-    `        return ResponseEntity.ok(service.getById(id));\n` +
-    `    }\n\n` +
-    `    @GetMapping\n` +
-    `    public ResponseEntity<List<${entityName}Response>> listAll() {\n` +
-    `        return ResponseEntity.ok(service.listAll());\n` +
-    `    }\n\n` +
-    `    @PutMapping(\"/{id}\")\n` +
-    `    public ResponseEntity<Void> update(@PathVariable Long id, @RequestBody ${entityName}Request request) {\n` +
-    `        service.update(id, request);\n` +
-    `        return ResponseEntity.ok().build();\n` +
-    `    }\n\n` +
-    `    @DeleteMapping(\"/{id}\")\n` +
-    `    public ResponseEntity<Void> delete(@PathVariable Long id) {\n` +
-    `        service.delete(id);\n` +
-    `        return ResponseEntity.noContent().build();\n` +
-    `    }\n` +
-    `}\n`;
-}
-// Genera DTO Request para una entidad
-function generateDtoRequestJava(cls: any, entityName?: string, basePackage?: string): string {
-  const pkg = basePackage || 'back';
-  let imports = [
-    'import jakarta.validation.constraints.*;'
-  ];
-  // Importar entidades si algún atributo es una entidad
-  for (const attr of cls.attributes) {
-    if (attr.typeName && /^[A-Z]/.test(attr.typeName)) {
-      imports.push(`import ${pkg}.entity.${attr.typeName};`);
-    }
-  }
-  let code = imports.join('\n') + '\n\n';
-  const className = entityName || toCamelCase(cls.name);
-  code += `public class ${className}Request {\n`;
-  // Campos
-  for (const attr of cls.attributes) {
-    if (attr.isRequired) code += '    @NotNull\n';
-    if (attr.typeName === 'string' && attr.maxLength) code += `    @Size(max = ${attr.maxLength})\n`;
-    code += `    private ${mapType(attr.typeName)} ${attr.name};\n`;
-  }
-  code += '\n    public ' + className + 'Request() {}\n';
-  // Getters y setters
-  for (const attr of cls.attributes) {
-    const type = mapType(attr.typeName);
-    const name = attr.name;
-    const camel = name.charAt(0).toUpperCase() + name.slice(1);
-    code += `\n    public ${type} get${camel}() { return this.${name}; }\n`;
-    code += `    public void set${camel}(${type} ${name}) { this.${name} = ${name}; }\n`;
-  }
-  code += '}\n';
-  return code;
-}
 
-// Genera DTO Response para una entidad
-function generateDtoResponseJava(cls: any, entityName?: string, basePackage?: string): string {
-  const className = entityName || toCamelCase(cls.name);
-  const pkg = basePackage || 'back';
-  let imports = [];
-  for (const attr of cls.attributes) {
-    if (attr.typeName && /^[A-Z]/.test(attr.typeName)) {
-      imports.push(`import ${pkg}.entity.${attr.typeName};`);
-    }
-  }
-  let code = imports.length ? imports.join('\n') + '\n\n' : '';
-  code += `public class ${className}Response {\n`;
-  // Campos
-  for (const attr of cls.attributes) {
-    code += `    private ${mapType(attr.typeName)} ${attr.name};\n`;
-  }
-  code += '\n    public ' + className + 'Response() {}\n';
-  // Getters y setters
-  for (const attr of cls.attributes) {
-    const type = mapType(attr.typeName);
-    const name = attr.name;
-    const camel = name.charAt(0).toUpperCase() + name.slice(1);
-    code += `\n    public ${type} get${camel}() { return this.${name}; }\n`;
-    code += `    public void set${camel}(${type} ${name}) { this.${name} = ${name}; }\n`;
-  }
-  code += '}\n';
-  return code;
-}
+
+
 
 // Genera un mapper manual simple para una entidad
 function generateMapperJava(cls: any, entityName?: string, basePackage?: string): string {
@@ -345,7 +200,20 @@ function generateMapperJava(cls: any, entityName?: string, basePackage?: string)
     const camel = name.charAt(0).toUpperCase() + name.slice(1);
     code += `        dto.set${camel}(entity.get${camel}());\n`;
   }
-  code += `        return dto;\n    }\n`;
+  code += `        return dto;\n    }\n\n`;
+  
+  // Método para actualizar entidad existente desde request (para PUT)
+  code += `    public void updateEntityFromRequest(${entityName} entity, ${entityName}Request request) {\n`;
+  code += `        if (entity == null || request == null) return;\n`;
+  for (const attr of cls.attributes) {
+    // No actualizar campos PK desde el request
+    if (!attr.isPrimaryKey) {
+      const name = attr.name;
+      const camel = name.charAt(0).toUpperCase() + name.slice(1);
+      code += `        entity.set${camel}(request.get${camel}());\n`;
+    }
+  }
+  code += `    }\n`;
   code += `}\n`;
   return code;
 }
@@ -384,14 +252,24 @@ function generateControllerJava(entityName: string): string {
 // Utilidad para mapear tipos del snapshot a tipos Java
 function mapType(type: string): string {
   switch (type) {
+    case 'String': return 'String';
     case 'string': return 'String';
     case 'int': return 'Integer';
+    case 'Integer': return 'Integer';
     case 'long': return 'Long';
+    case 'Long': return 'Long';
     case 'boolean': return 'Boolean';
+    case 'Boolean': return 'Boolean';
     case 'float': return 'Float';
+    case 'Float': return 'Float';
     case 'double': return 'Double';
+    case 'Double': return 'Double';
     case 'date': return 'LocalDate';
+    case 'Date': return 'LocalDate';
+    case 'LocalDate': return 'LocalDate';
     case 'datetime': return 'LocalDateTime';
+    case 'DateTime': return 'LocalDateTime';
+    case 'LocalDateTime': return 'LocalDateTime';
     case 'BigDecimal': return 'BigDecimal';
     default: return 'String';
   }
@@ -404,13 +282,25 @@ function generateEntityJava(cls: any, allClasses: any[], allRelations: any[], ba
     'import jakarta.persistence.*;',
     'import java.io.Serializable;'
   ];
-  if (cls.attributes.some((a: any) => a.typeName === 'date')) imports.push('import java.time.LocalDate;');
-  if (cls.attributes.some((a: any) => a.typeName === 'datetime')) imports.push('import java.time.LocalDateTime;');
-  if (cls.attributes.some((a: any) => a.typeName === 'BigDecimal')) imports.push('import java.math.BigDecimal;');
-
+  
+  // Detectar tipos de fecha y agregar imports necesarios
+  const hasDate = cls.attributes.some((a: any) => ['date', 'Date', 'LocalDate'].includes(a.typeName));
+  const hasDateTime = cls.attributes.some((a: any) => ['datetime', 'DateTime', 'LocalDateTime'].includes(a.typeName));
+  const hasBigDecimal = cls.attributes.some((a: any) => a.typeName === 'BigDecimal');
+  
+  if (hasDate) imports.push('import java.time.LocalDate;');
+  if (hasDateTime) imports.push('import java.time.LocalDateTime;');
+  if (hasBigDecimal) imports.push('import java.math.BigDecimal;');
+  
   // Para relaciones bidireccionales
   const className = cls.name.replace(/\s+/g, '');
   const classId = cls.id;
+  
+  // Agregar import para List si hay relaciones OneToMany
+  const hasOneToMany = allRelations.some((rel: any) => rel.sourceId === classId && rel.type === 'Asociación');
+  const hasManyToMany = allRelations.some((rel: any) => rel.type === 'AsociaciónNtoN' && (rel.sourceId === classId || rel.targetId === classId));
+  if (hasOneToMany) imports.push('import java.util.List;');
+  if (hasManyToMany) imports.push('import java.util.Set;');
 
   // Buscar relaciones donde esta clase es destino (ManyToOne)
   const manyToOneRels = allRelations.filter((rel: any) => rel.targetId === classId && rel.type === 'Asociación');
@@ -436,8 +326,17 @@ function generateEntityJava(cls: any, allClasses: any[], allRelations: any[], ba
   code += `@Table(name = "${cls.name.replace(/\s+/g, '_').toLowerCase()}")\n`;
   code += `public class ${className} implements Serializable {\n`;
   code += '    private static final long serialVersionUID = 1L;\n\n';
+  
   // Detectar el atributo PK y su tipo
   const pkAttr = cls.attributes.find((a: any) => a.isPrimaryKey);
+  
+  // Si no hay atributo PK definido, agregar un ID automático
+  if (!pkAttr) {
+    code += '    @Id\n';
+    code += '    @GeneratedValue(strategy = GenerationType.IDENTITY)\n';
+    code += '    private Long id;\n\n';
+  }
+  
   // Atributos simples
   for (const attr of cls.attributes) {
     if (attr.isPrimaryKey) {
@@ -498,9 +397,184 @@ function generateEntityJava(cls: any, allClasses: any[], allRelations: any[], ba
     code += `\n    public ${type} get${camel}() { return this.${name}; }\n`;
     code += `    public void set${camel}(${type} ${name}) { this.${name} = ${name}; }\n`;
   }
+  
+  // Agregar getter/setter para ID si no existe un atributo PK explícito
+  const hasPkAttribute = cls.attributes.some((a: any) => a.isPrimaryKey);
+  if (!hasPkAttribute) {
+    code += `\n    public Long getId() { return this.id; }\n`;
+    code += `    public void setId(Long id) { this.id = id; }\n`;
+  }
+  
   code += '}\n';
   return code;
 }
+
+// Genera el código Java de un servicio con métodos CRUD usando repositorio y mapper
+function generateServiceCrudJava(entityName: string, basePackage?: string): string {
+  const pkg = basePackage || 'back';
+  return `import org.springframework.stereotype.Service;\n` +
+    `import org.springframework.transaction.annotation.Transactional;\n` +
+    `import java.util.List;\n` +
+    `import java.util.stream.Collectors;\n` +
+    `import ${pkg}.entity.${entityName};\n` +
+    `import ${pkg}.dto.${entityName}Request;\n` +
+    `import ${pkg}.dto.${entityName}Response;\n` +
+    `import ${pkg}.repository.${entityName}Repository;\n` +
+    `import ${pkg}.mapper.${entityName}Mapper;\n` +
+    `@Service\n` +
+    `public class ${entityName}Service {\n` +
+    `    private final ${entityName}Repository repository;\n` +
+    `    private final ${entityName}Mapper mapper;\n\n` +
+    `    public ${entityName}Service(${entityName}Repository repository, ${entityName}Mapper mapper) {\n` +
+    `        this.repository = repository;\n` +
+    `        this.mapper = mapper;\n` +
+    `    }\n\n` +
+    `    @Transactional\n` +
+    `    public void create(${entityName}Request request) {\n` +
+    `        var entity = mapper.toEntity(request);\n` +
+    `        repository.save(entity);\n` +
+    `    }\n\n` +
+    `    public ${entityName}Response getById(Long id) {\n` +
+    `        var entity = repository.findById(id).orElseThrow(() -> new RuntimeException(\"Not found\"));\n` +
+    `        return mapper.toResponse(entity);\n` +
+    `    }\n\n` +
+    `    public List<${entityName}Response> listAll() {\n` +
+    `        return repository.findAll().stream().map(mapper::toResponse).collect(Collectors.toList());\n` +
+    `    }\n\n` +
+    `    @Transactional\n` +
+    `    public void update(Long id, ${entityName}Request request) {\n` +
+    `        var entity = repository.findById(id).orElseThrow(() -> new RuntimeException(\"Not found\"));\n` +
+    `        // Actualizar campos manualmente desde el request\n` +
+    `        mapper.updateEntityFromRequest(entity, request);\n` +
+    `        repository.save(entity);\n` +
+    `    }\n\n` +
+    `    @Transactional\n` +
+    `    public void delete(Long id) {\n` +
+    `        repository.deleteById(id);\n` +
+    `    }\n` +
+    `}\n`;
+}
+
+// Genera el código Java de un controlador REST CRUD usando DTOs y mappers
+function generateControllerCrudJava(entityName: string, basePackage?: string): string {
+  const lower = entityName.charAt(0).toLowerCase() + entityName.slice(1);
+  const pkg = basePackage || 'back';
+  return `import org.springframework.web.bind.annotation.*;\n` +
+    `import org.springframework.http.ResponseEntity;\n` +
+    `import java.util.List;\n` +
+    `import ${pkg}.dto.${entityName}Request;\n` +
+    `import ${pkg}.dto.${entityName}Response;\n` +
+    `import ${pkg}.service.${entityName}Service;\n` +
+    `@RestController\n` +
+    `@RequestMapping(\"/api/${lower}\")\n` +
+    `public class ${entityName}Controller {\n` +
+    `    private final ${entityName}Service service;\n\n` +
+    `    public ${entityName}Controller(${entityName}Service service) {\n` +
+    `        this.service = service;\n` +
+    `    }\n\n` +
+    `    @PostMapping\n` +
+    `    public ResponseEntity<Void> create(@RequestBody ${entityName}Request request) {\n` +
+    `        service.create(request);\n` +
+    `        return ResponseEntity.status(201).build();\n` +
+    `    }\n\n` +
+    `    @GetMapping(\"/{id}\")\n` +
+    `    public ResponseEntity<${entityName}Response> getById(@PathVariable Long id) {\n` +
+    `        return ResponseEntity.ok(service.getById(id));\n` +
+    `    }\n\n` +
+    `    @GetMapping\n` +
+    `    public ResponseEntity<List<${entityName}Response>> listAll() {\n` +
+    `        return ResponseEntity.ok(service.listAll());\n` +
+    `    }\n\n` +
+    `    @PutMapping(\"/{id}\")\n` +
+    `    public ResponseEntity<Void> update(@PathVariable Long id, @RequestBody ${entityName}Request request) {\n` +
+    `        service.update(id, request);\n` +
+    `        return ResponseEntity.ok().build();\n` +
+    `    }\n\n` +
+    `    @DeleteMapping(\"/{id}\")\n` +
+    `    public ResponseEntity<Void> delete(@PathVariable Long id) {\n` +
+    `        service.delete(id);\n` +
+    `        return ResponseEntity.noContent().build();\n` +
+    `    }\n` +
+    `}\n`;
+}
+
+// Genera DTO Request para una entidad
+function generateDtoRequestJava(cls: any, entityName?: string, basePackage?: string): string {
+  const pkg = basePackage || 'back';
+  let imports = [
+    'import jakarta.validation.constraints.*;'
+  ];
+  
+  // Agregar imports para tipos de fecha
+  const hasDate = cls.attributes.some((a: any) => ['date', 'Date', 'LocalDate'].includes(a.typeName));
+  const hasDateTime = cls.attributes.some((a: any) => ['datetime', 'DateTime', 'LocalDateTime'].includes(a.typeName));
+  if (hasDate) imports.push('import java.time.LocalDate;');
+  if (hasDateTime) imports.push('import java.time.LocalDateTime;');
+  
+  // Importar entidades si algún atributo es una entidad
+  for (const attr of cls.attributes) {
+    if (attr.typeName && /^[A-Z]/.test(attr.typeName)) {
+      imports.push(`import ${pkg}.entity.${attr.typeName};`);
+    }
+  }
+  let code = imports.join('\n') + '\n\n';
+  const className = entityName || toCamelCase(cls.name);
+  code += `public class ${className}Request {\n`;
+  // Campos
+  for (const attr of cls.attributes) {
+    if (attr.isRequired) code += '    @NotNull\n';
+    if (attr.typeName === 'string' && attr.maxLength) code += `    @Size(max = ${attr.maxLength})\n`;
+    code += `    private ${mapType(attr.typeName)} ${attr.name};\n`;
+  }
+  code += '\n    public ' + className + 'Request() {}\n';
+  // Getters y setters
+  for (const attr of cls.attributes) {
+    const type = mapType(attr.typeName);
+    const name = attr.name;
+    const camel = name.charAt(0).toUpperCase() + name.slice(1);
+    code += `\n    public ${type} get${camel}() { return this.${name}; }\n`;
+    code += `    public void set${camel}(${type} ${name}) { this.${name} = ${name}; }\n`;
+  }
+  code += '}\n';
+  return code;
+}
+
+// Genera DTO Response para una entidad
+function generateDtoResponseJava(cls: any, entityName?: string, basePackage?: string): string {
+  const className = entityName || toCamelCase(cls.name);
+  const pkg = basePackage || 'back';
+  let imports = [];
+  
+  // Agregar imports para tipos de fecha
+  const hasDate = cls.attributes.some((a: any) => ['date', 'Date', 'LocalDate'].includes(a.typeName));
+  const hasDateTime = cls.attributes.some((a: any) => ['datetime', 'DateTime', 'LocalDateTime'].includes(a.typeName));
+  if (hasDate) imports.push('import java.time.LocalDate;');
+  if (hasDateTime) imports.push('import java.time.LocalDateTime;');
+  
+  for (const attr of cls.attributes) {
+    if (attr.typeName && /^[A-Z]/.test(attr.typeName)) {
+      imports.push(`import ${pkg}.entity.${attr.typeName};`);
+    }
+  }
+  let code = imports.length ? imports.join('\n') + '\n\n' : '';
+  code += `public class ${className}Response {\n`;
+  // Campos
+  for (const attr of cls.attributes) {
+    code += `    private ${mapType(attr.typeName)} ${attr.name};\n`;
+  }
+  code += '\n    public ' + className + 'Response() {}\n';
+  // Getters y setters
+  for (const attr of cls.attributes) {
+    const type = mapType(attr.typeName);
+    const name = attr.name;
+    const camel = name.charAt(0).toUpperCase() + name.slice(1);
+    code += `\n    public ${type} get${camel}() { return this.${name}; }\n`;
+    code += `    public void set${camel}(${type} ${name}) { this.${name} = ${name}; }\n`;
+  }
+  code += '}\n';
+  return code;
+}
+
 import { Component } from '@angular/core';
 import { CommonModule, JsonPipe } from '@angular/common';
 import { Router } from '@angular/router';

@@ -4,6 +4,8 @@
 	<div *ngFor="let item of umlItems" class="flex items-center gap-3 mb-4 cursor-pointer hover:bg-blue-100 rounded p-2 transition-all" (click)="onUmlItemClick(item)">
 		<ng-container [ngSwitch]="item.name">
 			<svg *ngSwitchCase="'Clase'" width="36" height="28" viewBox="0 0 36 28" fill="none"><rect x="3" y="5" width="30" height="18" rx="2" fill="#fff" stroke="#222" stroke-width="2"/><rect x="3" y="5" width="30" height="5" fill="#e5e7eb" stroke="#222" stroke-width="1"/><text x="18" y="15" text-anchor="middle" font-size="10" fill="#222" font-family="Arial">Clase</text></svg>
+			<svg *ngSwitchCase="'Interface'" width="36" height="28" viewBox="0 0 36 28" fill="none"><rect x="3" y="5" width="30" height="18" rx="2" fill="#fff" stroke="#222" stroke-width="2"/><rect x="3" y="5" width="30" height="5" fill="#e8f4fd" stroke="#222" stroke-width="1"/><text x="18" y="11" text-anchor="middle" font-size="8" fill="#222" font-family="Arial">«interface»</text><text x="18" y="18" text-anchor="middle" font-size="9" fill="#222" font-family="Arial">Interface</text></svg>
+			<svg *ngSwitchCase="'Clase Abstracta'" width="36" height="28" viewBox="0 0 36 28" fill="none"><rect x="3" y="5" width="30" height="18" rx="2" fill="#fff" stroke="#222" stroke-width="2"/><rect x="3" y="5" width="30" height="5" fill="#fef3e8" stroke="#222" stroke-width="1"/><text x="18" y="11" text-anchor="middle" font-size="8" fill="#222" font-family="Arial">«abstract»</text><text x="18" y="18" text-anchor="middle" font-size="8" fill="#222" font-family="Arial">ClaseAbstracta</text></svg>
 		</ng-container>
 		<span class="font-medium text-base">{{ item.name }}</span>
 	</div>
@@ -15,6 +17,7 @@
 			<svg *ngSwitchCase="'Agregación'" width="36" height="28" viewBox="0 0 36 28" fill="none"><line x1="8" y1="14" x2="28" y2="14" stroke="#222" stroke-width="2"/><polygon points="28,14 24,12 22,14 24,16" fill="#fff" stroke="#222" stroke-width="2"/></svg>
 			<svg *ngSwitchCase="'Composición'" width="36" height="28" viewBox="0 0 36 28" fill="none"><line x1="8" y1="14" x2="28" y2="14" stroke="#222" stroke-width="2"/><polygon points="28,14 24,12 22,14 24,16" fill="#222" stroke="#222" stroke-width="2"/></svg>
 			<svg *ngSwitchCase="'Dependencia'" width="36" height="28" viewBox="0 0 36 28" fill="none"><line x1="8" y1="14" x2="28" y2="14" stroke="#222" stroke-width="2" stroke-dasharray="4 2"/><polygon points="28,14 24,12 28,16" fill="#222"/></svg>
+			<svg *ngSwitchCase="'Realización'" width="36" height="28" viewBox="0 0 36 28" fill="none"><line x1="8" y1="14" x2="28" y2="14" stroke="#222" stroke-width="2" stroke-dasharray="4 2"/><polygon points="28,14 24,12 22,14 24,16" fill="#fff" stroke="#222" stroke-width="2"/></svg>
 		</ng-container>
 		<span class="font-medium text-base">{{ item.name }}</span>
 	</div>

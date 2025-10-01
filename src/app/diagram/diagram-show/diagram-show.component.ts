@@ -5,7 +5,7 @@ export interface UMLRelation {
   id: string;
   sourceId: string;
   targetId: string;
-  type: 'Herencia' | 'Asociación' | 'Agregación' | 'Composición' | 'Dependencia' | 'AsociaciónNtoN';
+  type: 'Herencia' | 'Asociación' | 'Agregación' | 'Composición' | 'Dependencia' | 'AsociaciónNtoN' | 'Realización';
   sourceMultiplicity?: string; // Ej: '1', '0..1', '1..*', '*'
   targetMultiplicity?: string; // Ej: '1', '0..1', '1..*', '*'
   name?: string; // Nombre de la relación (opcional)
@@ -33,6 +33,24 @@ export interface UMLAttribute {
   position: number;
 }
 
+export interface UMLMethod {
+  id: string;
+  name: string;
+  returnType: string;
+  visibility: 'PUBLIC' | 'PRIVATE' | 'PROTECTED';
+  parameters: UMLParameter[];
+  isStatic?: boolean;
+  isAbstract?: boolean;
+  position: number;
+}
+
+export interface UMLParameter {
+  id: string;
+  name: string;
+  typeName: string;
+  position: number;
+}
+
 export interface UMLClass {
   id: string;
   name: string;
@@ -40,6 +58,10 @@ export interface UMLClass {
   position: { x: number; y: number };
   size: { w: number; h: number };
   attributes: UMLAttribute[];
+  methods?: UMLMethod[];
+  classType: 'CLASS' | 'INTERFACE' | 'ABSTRACT_CLASS';
+  isAbstract?: boolean;
+  stereotype?: string; // <<entity>>, <<controller>>, etc.
 }
 
 export const ATTRIBUTE_TYPES = [
@@ -103,16 +125,8 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
         const newClass = event.payload.class;
         if (!this.umlClasses.find(c => c.id === newClass.id)) {
           this.umlClasses.push(newClass);
-          // Crear nodo visual
-          let content = newClass.name;
-          if (newClass.attributes && newClass.attributes.length > 0) {
-            content += '\n' + '─'.repeat(Math.max(newClass.name.length, 10)) + '\n';
-            content += newClass.attributes.map((attr: any) => {
-              let line = attr.name + ': ' + attr.typeName;
-              if (attr.isPrimaryKey) line += ' [PK]';
-              return line;
-            }).join('\n');
-          }
+          // Crear nodo visual con formato UML 2.5
+          const content = this.generateUMLClassContent(newClass);
           const lines = content.split('\n');
           const maxLineLength = Math.max(...lines.map((line: string) => line.length));
           const newWidth = Math.max(150, maxLineLength * 8 + 20);
@@ -172,7 +186,7 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
               connector.style = { strokeColor: '#222', strokeWidth: 2 };
               break;
             case 'Asociación':
-              connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
+              connector.targetDecorator = { shape: 'None' };
               connector.style = { strokeColor: '#222', strokeWidth: 2 };
               break;
             case 'Agregación':
@@ -185,6 +199,10 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
               break;
             case 'Dependencia':
               connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
+              connector.style = { strokeColor: '#222', strokeWidth: 2, strokeDashArray: '4 2' };
+              break;
+            case 'Realización':
+              connector.targetDecorator = { shape: 'Arrow', style: { fill: '#fff', strokeColor: '#222', strokeWidth: 2 } };
               connector.style = { strokeColor: '#222', strokeWidth: 2, strokeDashArray: '4 2' };
               break;
           }
@@ -263,16 +281,8 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
           const nodeIdx = this.nodes.findIndex(n => n.id === classId);
           if (nodeIdx !== -1) {
             
-            // Generar contenido actualizado del nodo
-            let content = this.umlClasses[idx].name;
-            if (this.umlClasses[idx].attributes && this.umlClasses[idx].attributes.length > 0) {
-              content += '\n' + '─'.repeat(Math.max(this.umlClasses[idx].name.length, 10)) + '\n';
-              content += this.umlClasses[idx].attributes.map((attr: any) => {
-                let line = attr.name + ': ' + attr.typeName;
-                if (attr.isPrimaryKey) line += ' [PK]';
-                return line;
-              }).join('\n');
-            }
+            // Generar contenido actualizado con formato UML 2.5
+            const content = this.generateUMLClassContent(this.umlClasses[idx]);
             
             const lines = content.split('\n');
             const maxLineLength = Math.max(...lines.map((line: string) => line.length));
@@ -865,10 +875,12 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
         const newClass = {
           id: node.id || '',
           name: node.annotations?.[0]?.content?.split('\n')[0] || 'Clase',
+          classType: 'CLASS' as const,
           visibility: 'PUBLIC' as const,
           position: { x: node.offsetX || 0, y: node.offsetY || 0 },
           size: { w: node.width || 150, h: node.height || 80 },
-          attributes: []
+          attributes: [],
+          methods: []
         };
         this.umlClasses.push(newClass);
       }
@@ -1079,19 +1091,11 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     if (snap.classes) {
       this.umlClasses = snap.classes;
       this.nodes = this.umlClasses.map(cls => {
-        // Formatear contenido UML: nombre, línea, atributos
-        let content = cls.name;
-        if (cls.attributes && cls.attributes.length > 0) {
-          content += '\n' + '─'.repeat(Math.max(cls.name.length, 10)) + '\n';
-          content += cls.attributes.map(attr => {
-            let line = attr.name + ': ' + attr.typeName;
-            if (attr.isPrimaryKey) line += ' [PK]';
-            return line;
-          }).join('\n');
-        }
+        // Generar contenido con formato UML 2.5 estándar
+        const content = this.generateUMLClassContent(cls);
         // Calcular tamaño según contenido
         const lines = content.split('\n');
-        const maxLineLength = Math.max(...lines.map(line => line.length));
+        const maxLineLength = Math.max(...lines.map((line: string) => line.length));
         const newWidth = Math.max(150, maxLineLength * 8 + 20);
         const newHeight = Math.max(80, lines.length * 20 + 20);
         return {
@@ -1132,7 +1136,7 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
               connector.style = { strokeColor: '#222', strokeWidth: 2 };
               break;
             case 'Asociación':
-              connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
+              connector.targetDecorator = { shape: 'None' };
               connector.style = { strokeColor: '#222', strokeWidth: 2 };
               break;
             case 'Agregación':
@@ -1145,6 +1149,10 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
               break;
             case 'Dependencia':
               connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
+              connector.style = { strokeColor: '#222', strokeWidth: 2, strokeDashArray: '4 2' };
+              break;
+            case 'Realización':
+              connector.targetDecorator = { shape: 'Arrow', style: { fill: '#fff', strokeColor: '#222', strokeWidth: 2 } };
               connector.style = { strokeColor: '#222', strokeWidth: 2, strokeDashArray: '4 2' };
               break;
           }
@@ -1192,29 +1200,49 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     }, 100);
   }
 
-  addNewClass(): void {
+  addNewClass(classTypeName: string): void {
     const newClassId = `class_${Date.now()}`;
+    
+    let classType: 'CLASS' | 'INTERFACE' | 'ABSTRACT_CLASS' = 'CLASS';
+    let name = 'Nueva Clase';
+    let isAbstract = false;
+    let stereotype = '';
+    
+    switch (classTypeName) {
+      case 'Interface':
+        classType = 'INTERFACE';
+        name = 'Nueva Interface';
+        stereotype = 'interface';
+        break;
+      case 'Clase Abstracta':
+        classType = 'ABSTRACT_CLASS';
+        name = 'Nueva Clase Abstracta';
+        isAbstract = true;
+        stereotype = 'abstract';
+        break;
+      default:
+        classType = 'CLASS';
+        name = 'Nueva Clase';
+        break;
+    }
+    
     const newClass: UMLClass = {
       id: newClassId,
-      name: 'Nueva Clase',
+      name: name,
       visibility: 'PUBLIC',
       position: { x: Math.random() * 400 + 300, y: Math.random() * 300 + 200 },
       size: { w: 150, h: 80 },
-      attributes: []
+      classType: classType,
+      isAbstract: isAbstract,
+      stereotype: stereotype,
+      attributes: [],
+      methods: []
     };
     this.umlClasses.push(newClass);
-    // Formatear contenido UML: nombre, línea, atributos (vacío al crear)
-    let content = newClass.name;
-    if (newClass.attributes && newClass.attributes.length > 0) {
-      content += '\n' + '─'.repeat(Math.max(newClass.name.length, 10)) + '\n';
-      content += newClass.attributes.map(attr => {
-        let line = attr.name + ': ' + attr.typeName;
-        if (attr.isPrimaryKey) line += ' [PK]';
-        return line;
-      }).join('\n');
-    }
+    // Generar contenido con formato UML 2.5 estándar
+    const content = this.generateUMLClassContent(newClass);
     const lines = content.split('\n');
-    const maxLineLength = Math.max(...lines.map(line => line.length));
+    const maxLineLength = Math.max(...lines.map((line: string) => line.length));
     const newWidth = Math.max(150, maxLineLength * 8 + 20);
     const newHeight = Math.max(80, lines.length * 20 + 20);
     const newNode: NodeModel = {
@@ -1304,7 +1332,7 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
         connector.style = { strokeColor: '#222', strokeWidth: 2 };
         break;
       case 'Asociación':
-        connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
+        connector.targetDecorator = { shape: 'None' };
         connector.style = { strokeColor: '#222', strokeWidth: 2 };
         break;
       case 'Agregación':
@@ -1317,6 +1345,10 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
         break;
       case 'Dependencia':
         connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
+        connector.style = { strokeColor: '#222', strokeWidth: 2, strokeDashArray: '4 2' };
+        break;
+      case 'Realización':
+        connector.targetDecorator = { shape: 'Arrow', style: { fill: '#fff', strokeColor: '#222', strokeWidth: 2 } };
         connector.style = { strokeColor: '#222', strokeWidth: 2, strokeDashArray: '4 2' };
         break;
     }
@@ -1511,22 +1543,106 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
   return this.umlClasses.find((c: UMLClass) => c.id === nodeId) || null;
   }
 
+  /**
+   * Genera el contenido visual de una clase UML siguiendo el estándar UML 2.5
+   * Formato: Estereotipo | Nombre de clase | Línea | Atributos | Línea | Métodos
+   */
+  private generateUMLClassContent(umlClass: UMLClass): string {
+    let allContentLines: string[] = [];
+    
+    // Estereotipo (si existe)
+    if (umlClass.stereotype) {
+      allContentLines.push(`<<${umlClass.stereotype}>>`);
+    }
+    
+    // Tipo de clase específico para interfaces
+    if (umlClass.classType === 'INTERFACE') {
+      allContentLines.push('<<interface>>');
+    }
+    
+    // Nombre de la clase
+    let className = umlClass.name;
+    if (umlClass.classType === 'ABSTRACT_CLASS' || umlClass.isAbstract) {
+      className = `{abstract} ${className}`;
+    }
+    allContentLines.push(className);
+    
+    // Preparar contenido de atributos
+    const attributeLines: string[] = [];
+    if (umlClass.attributes && umlClass.attributes.length > 0) {
+      umlClass.attributes.forEach((attr: UMLAttribute) => {
+        let visibilitySymbol = '+';
+        switch (umlClass.visibility) {
+          case 'PRIVATE': visibilitySymbol = '-'; break;
+          case 'PROTECTED': visibilitySymbol = '#'; break;
+          case 'PUBLIC': default: visibilitySymbol = '+'; break;
+        }
+        
+        let line = `${visibilitySymbol} ${attr.name}: ${attr.typeName}`;
+        const modifiers = [];
+        if (attr.isPrimaryKey) modifiers.push('PK');
+        if (attr.isRequired && !attr.isPrimaryKey) modifiers.push('required');
+        
+        if (modifiers.length > 0) {
+          line += ` {${modifiers.join(', ')}}`;
+        }
+        
+        attributeLines.push(line);
+      });
+    }
+    
+    // Preparar contenido de métodos (solo mostrar métodos explícitamente definidos)
+    const methodLines: string[] = [];
+    if (umlClass.methods && umlClass.methods.length > 0) {
+      umlClass.methods.forEach((method: UMLMethod) => {
+        let visibilitySymbol = '+';
+        switch (method.visibility) {
+          case 'PRIVATE': visibilitySymbol = '-'; break;
+          case 'PROTECTED': visibilitySymbol = '#'; break;
+          case 'PUBLIC': default: visibilitySymbol = '+'; break;
+        }
+        
+        const paramStr = method.parameters?.map(p => `${p.name}: ${p.typeName}`).join(', ') || '';
+        let methodLine = `${visibilitySymbol} ${method.name}(${paramStr}): ${method.returnType}`;
+        
+        if (method.isStatic) methodLine = `{static} ${methodLine}`;
+        if (method.isAbstract) methodLine = `{abstract} ${methodLine}`;
+        
+        methodLines.push(methodLine);
+      });
+    }
+    
+    // Calcular ancho máximo para líneas separadoras
+    const maxContentLength = Math.max(
+      ...allContentLines.map(line => line.length),
+      ...attributeLines.map(line => line.length),
+      ...methodLines.map(line => line.length),
+      12
+    );
+    
+    let content = allContentLines.join('\n');
+    
+    // Agregar compartimento de atributos
+    if (attributeLines.length > 0) {
+      content += '\n' + '─'.repeat(maxContentLength + 2) + '\n';
+      content += attributeLines.join('\n');
+    }
+    
+    // Agregar compartimento de métodos
+    if (methodLines.length > 0) {
+      content += '\n' + '─'.repeat(maxContentLength + 2) + '\n';
+      content += methodLines.join('\n');
+    }
+    
+    return content;
+  }
+
   // Actualiza el contenido visual del nodo en el canvas
   updateNodeContent(umlClass: UMLClass | null) {
     if (!umlClass) return;
     
-    
-    // Construir contenido con formato UML: nombre arriba, línea separadora, atributos abajo
-    let content = umlClass.name;
-    
-    if (umlClass.attributes.length > 0) {
-      content += '\n' + '─'.repeat(Math.max(umlClass.name.length, 10)) + '\n'; // Línea separadora
-      content += umlClass.attributes.map(attr => {
-        let line = attr.name + ': ' + attr.typeName;
-        if (attr.isPrimaryKey) line += ' [PK]';
-        return line;
-      }).join('\n');
-    }
+    // Generar contenido con formato UML 2.5 estándar
+    const content = this.generateUMLClassContent(umlClass);
     
     // Método más directo: eliminar y recrear el nodo
     if (this.diagramComponent) {
@@ -1541,7 +1657,7 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
         
         // Calcular nuevo tamaño
         const lines = content.split('\n');
-        const maxLineLength = Math.max(...lines.map(line => line.length));
+        const maxLineLength = Math.max(...lines.map((line: string) => line.length));
         const newWidth = Math.max(150, maxLineLength * 8 + 20);
         const newHeight = Math.max(80, lines.length * 20 + 20);
         
@@ -1634,6 +1750,7 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       visibility: 'PUBLIC',
       position: { x: (source.position.x + target.position.x) / 2, y: (source.position.y + target.position.y) / 2 + 100 },
       size: { w: 180, h: 80 },
+      classType: 'CLASS',
       attributes: [
         {
           id: 'A' + Date.now() + '_src',
@@ -1654,18 +1771,10 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       ]
     };
     this.umlClasses.push(assocClass);
-    // Agregar nodo visual
-    let content = assocClass.name;
-    if (assocClass.attributes.length > 0) {
-      content += '\n' + '─'.repeat(Math.max(assocClass.name.length, 10)) + '\n';
-      content += assocClass.attributes.map(attr => {
-        let line = attr.name + ': ' + attr.typeName;
-        if (attr.isPrimaryKey) line += ' [PK]';
-        return line;
-      }).join('\n');
-    }
+    // Generar contenido con formato UML 2.5 estándar
+    const content = this.generateUMLClassContent(assocClass);
     const lines = content.split('\n');
-    const maxLineLength = Math.max(...lines.map(line => line.length));
+    const maxLineLength = Math.max(...lines.map((line: string) => line.length));
     const newWidth = Math.max(150, maxLineLength * 8 + 20);
     const newHeight = Math.max(80, lines.length * 20 + 20);
     const newNode: NodeModel = {
@@ -2074,25 +2183,17 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       visibility: classData.visibility || 'PUBLIC',
       position: classData.position || { x: 100 + (this.umlClasses.length * 50), y: 100 + (this.umlClasses.length * 50) },
       size: { w: 200, h: 150 },
+      classType: classData.classType || 'CLASS',
       attributes: classData.attributes || []
     };
 
     // Agregar la clase
     this.umlClasses.push(newClass);
     
-    // Crear contenido visual
-    let content = newClass.name;
-    if (newClass.attributes && newClass.attributes.length > 0) {
-      content += '\n' + '─'.repeat(Math.max(newClass.name.length, 10)) + '\n';
-      content += newClass.attributes.map((attr: any) => {
-        let line = attr.name + ': ' + attr.typeName;
-        if (attr.isPrimaryKey) line += ' [PK]';
-        return line;
-      }).join('\n');
-    }
-    
+    // Generar contenido con formato UML 2.5 estándar
+    const content = this.generateUMLClassContent(newClass);
     const lines = content.split('\n');
-    const maxLineLength = Math.max(...lines.map(line => line.length));
+    const maxLineLength = Math.max(...lines.map((line: string) => line.length));
     const calculatedWidth = Math.max(150, maxLineLength * 8 + 20);
     const calculatedHeight = Math.max(80, lines.length * 20 + 20);
     
@@ -2187,7 +2288,7 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
         connector.style = { strokeColor: '#222', strokeWidth: 2 };
         break;
       case 'Asociación':
-        connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
+        connector.targetDecorator = { shape: 'None' };
         connector.style = { strokeColor: '#222', strokeWidth: 2 };
         break;
       case 'Agregación':
@@ -2202,8 +2303,12 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
         connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
         connector.style = { strokeColor: '#222', strokeWidth: 2, strokeDashArray: '4 2' };
         break;
+      case 'Realización':
+        connector.targetDecorator = { shape: 'Arrow', style: { fill: '#fff', strokeColor: '#222', strokeWidth: 2 } };
+        connector.style = { strokeColor: '#222', strokeWidth: 2, strokeDashArray: '4 2' };
+        break;
       case 'AsociaciónNtoN':
-        connector.targetDecorator = { shape: 'Arrow', style: { fill: '#222', strokeColor: '#222' } };
+        connector.targetDecorator = { shape: 'None' };
         connector.style = { strokeColor: '#222', strokeWidth: 2 };
         break;
     }
@@ -2400,6 +2505,90 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     };
     
 
+  }
+
+  /**
+   * Maneja el cambio de tipo de clase y actualiza propiedades relacionadas
+   */
+  onClassTypeChange(newClassType: 'CLASS' | 'INTERFACE' | 'ABSTRACT_CLASS'): void {
+    if (!this.selectedUMLClass) return;
+    
+    // Actualizar propiedades según el tipo de clase
+    switch (newClassType) {
+      case 'INTERFACE':
+        this.selectedUMLClass.isAbstract = false;
+        this.selectedUMLClass.stereotype = 'interface';
+        break;
+      case 'ABSTRACT_CLASS':
+        this.selectedUMLClass.isAbstract = true;
+        this.selectedUMLClass.stereotype = 'abstract';
+        break;
+      case 'CLASS':
+        this.selectedUMLClass.isAbstract = false;
+        this.selectedUMLClass.stereotype = '';
+        break;
+    }
+    
+    // Actualizar automáticamente en el canvas
+    this.updateSelectedClassOnCanvas();
+  }
+
+  /**
+   * Agrega un nuevo método a la clase seleccionada
+   */
+  addMethod(): void {
+    if (!this.selectedUMLClass) return;
+    
+    if (!this.selectedUMLClass.methods) {
+      this.selectedUMLClass.methods = [];
+    }
+    
+    const newMethod: UMLMethod = {
+      id: `method_${Date.now()}`,
+      name: 'nuevoMetodo',
+      returnType: 'void',
+      visibility: 'PUBLIC',
+      parameters: [],
+      position: this.selectedUMLClass.methods.length
+    };
+    
+    this.selectedUMLClass.methods.push(newMethod);
+  }
+
+  /**
+   * Elimina un método de la clase seleccionada
+   */
+  removeMethod(index: number): void {
+    if (!this.selectedUMLClass?.methods) return;
+    this.selectedUMLClass.methods.splice(index, 1);
+  }
+
+  /**
+   * Agrega un parámetro a un método específico
+   */
+  addParameter(methodIndex: number): void {
+    if (!this.selectedUMLClass?.methods || !this.selectedUMLClass.methods[methodIndex]) return;
+    
+    if (!this.selectedUMLClass.methods[methodIndex].parameters) {
+      this.selectedUMLClass.methods[methodIndex].parameters = [];
+    }
+    
+    const newParameter: UMLParameter = {
+      id: `param_${Date.now()}`,
+      name: 'param',
+      typeName: 'String',
+      position: this.selectedUMLClass.methods[methodIndex].parameters!.length
+    };
+    
+    this.selectedUMLClass.methods[methodIndex].parameters!.push(newParameter);
+  }
+
+  /**
+   * Elimina un parámetro de un método específico
+   */
+  removeParameter(methodIndex: number, paramIndex: number): void {
+    if (!this.selectedUMLClass?.methods || !this.selectedUMLClass.methods[methodIndex]?.parameters) return;
+    this.selectedUMLClass.methods[methodIndex].parameters!.splice(paramIndex, 1);
   }
 
   ngOnDestroy(): void {

@@ -48,7 +48,7 @@
 <div style="display: flex; height: calc(100vh - 56px); box-sizing: border-box;">
 	<!-- Sidebar a la izquierda -->
 	<div style="width: 260px; background: #f3f4f6; border-right: 1px solid #e5e7eb; padding: 0.5rem 0;">
-		<app-show-sidebar (addClass)="addNewClass()" (selectRelation)="onRelationSelected($event)"></app-show-sidebar>
+		<app-show-sidebar (addClass)="addNewClass($event)" (selectRelation)="onRelationSelected($event)"></app-show-sidebar>
 	</div>
 	<!-- Diagramador principal -->
 	<div style="flex: 1; display: flex; flex-direction: column; position: relative;">
@@ -80,6 +80,14 @@
 					<option value="PROTECTED">Protegida</option>
 				</select>
 			</div>
+			<div style="margin-bottom: 1rem;">
+				<label style="display: block; font-size: 0.95rem; font-weight: 500;">Tipo de Clase</label>
+				<select [(ngModel)]="selectedUMLClass.classType" (ngModelChange)="onClassTypeChange($event)" style="width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 0.3rem 0.5rem; margin-top: 0.3rem;">
+					<option value="CLASS">Clase</option>
+					<option value="INTERFACE">Interface</option>
+					<option value="ABSTRACT_CLASS">Clase Abstracta</option>
+				</select>
+			</div>
 			<h3 style="font-weight: 600; margin-bottom: 0.5rem;">Atributos</h3>
 			<div *ngFor="let attr of selectedUMLClass.attributes; let i = index" style="margin-bottom: 0.7rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;">
 				<div style="display: flex; gap: 0.5rem; align-items: center;">
@@ -98,6 +106,39 @@
 				<div *ngIf="attributeNameExists(attr.name, i)" style="font-size: 0.85rem; color: #e11d48; margin-top: 0.2rem;">Nombre repetido</div>
 			</div>
 			<button (click)="addAttribute()" style="margin-top: 0.5rem; padding: 0.3rem 1.2rem; background: #2563eb; color: #fff; border-radius: 4px; border: none; font-weight: 500; cursor: pointer;">Agregar atributo</button>
+			
+			<!-- Sección de métodos comentada por petición del usuario -->
+			<!-- 
+			<h3 style="font-weight: 600; margin-bottom: 0.5rem; margin-top: 1.5rem;">Métodos</h3>
+			<div *ngFor="let method of selectedUMLClass.methods || []; let i = index" style="margin-bottom: 0.7rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;">
+				<div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.3rem;">
+					<input type="text" [(ngModel)]="method.name" placeholder="Nombre método" style="border: 1px solid #ccc; border-radius: 4px; padding: 0.2rem 0.5rem; width: 120px;" />
+					<select [(ngModel)]="method.returnType" style="border: 1px solid #ccc; border-radius: 4px; padding: 0.2rem 0.5rem; width: 80px;">
+						<option *ngFor="let t of attributeTypes" [value]="t">{{t}}</option>
+						<option value="void">void</option>
+					</select>
+					<select [(ngModel)]="method.visibility" style="border: 1px solid #ccc; border-radius: 4px; padding: 0.2rem 0.5rem; width: 80px;">
+						<option value="PUBLIC">Público</option>
+						<option value="PRIVATE">Privado</option>
+						<option value="PROTECTED">Protegido</option>
+					</select>
+					<button (click)="removeMethod(i)" style="color: #e11d48; background: none; border: none; cursor: pointer;">Eliminar</button>
+				</div>
+				<div style="margin-left: 0.5rem;">
+					<h4 style="font-size: 0.9rem; margin: 0.3rem 0;">Parámetros:</h4>
+					<div *ngFor="let param of method.parameters || []; let j = index" style="display: flex; gap: 0.3rem; align-items: center; margin-bottom: 0.2rem;">
+						<input type="text" [(ngModel)]="param.name" placeholder="Nombre param" style="border: 1px solid #ccc; border-radius: 4px; padding: 0.1rem 0.3rem; width: 80px; font-size: 0.85rem;" />
+						<select [(ngModel)]="param.typeName" style="border: 1px solid #ccc; border-radius: 4px; padding: 0.1rem 0.3rem; width: 70px; font-size: 0.85rem;">
+							<option *ngFor="let t of attributeTypes" [value]="t">{{t}}</option>
+						</select>
+						<button (click)="removeParameter(i, j)" style="color: #e11d48; background: none; border: none; cursor: pointer; font-size: 0.8rem;">×</button>
+					</div>
+					<button (click)="addParameter(i)" style="font-size: 0.8rem; padding: 0.1rem 0.5rem; background: #6366f1; color: #fff; border-radius: 3px; border: none; font-weight: 500; cursor: pointer;">+ Parámetro</button>
+				</div>
+			</div>
+			<button (click)="addMethod()" style="margin-top: 0.5rem; padding: 0.3rem 1.2rem; background: #7c3aed; color: #fff; border-radius: 4px; border: none; font-weight: 500; cursor: pointer;">Agregar método</button>
+			-->
+			
 			<!-- Botón para actualizar la clase en el canvas -->
 			<button (click)="updateSelectedClassOnCanvas()" style="margin-top: 0.5rem; margin-left: 0.5rem; padding: 0.3rem 1.2rem; background: #059669; color: #fff; border-radius: 4px; border: none; font-weight: 500; cursor: pointer;">Actualizar clase</button>
 			<button (click)="closeClassPanel()" style="position: absolute; top: 0.7rem; right: 0.7rem; color: #888; background: none; border: none; font-size: 1.3rem; cursor: pointer;">✕</button>
