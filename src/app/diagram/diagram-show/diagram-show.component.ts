@@ -854,6 +854,12 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
   showAISuggestions: boolean = false;
   showVoicePrompt: boolean = false;
   currentSnapshot: any = null;
+  
+  // === PROPIEDADES PARA MODAL DE INVITACIÓN ===
+  showInvitationModal: boolean = false;
+  joiningProject: boolean = false;
+  projectId: string = '';
+  private silenceInvitationErrors: boolean = false; // Para no mostrar errores HTTP esperados
 
   // Sincroniza los arrays de datos con los visuales antes de guardar
   syncDataFromVisuals() {
@@ -992,7 +998,147 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
     // Navegar a diagram-export pasando el snapshot como estado
     this.router.navigate(['/diagram/export'], { state: { snapshot } });
   }
-
+  
+  /**
+   * Maneja el acceso de usuarios que no son miembros del proyecto
+   */
+  private handleNonMemberAccess() {
+    // Evitar mostrar múltiples modales
+    if (this.showInvitationModal) {
+      return;
+    }
+    
+    // Mostrar el modal inmediatamente
+    this.showInvitationModal = true;
+    // Detener cualquier proceso de carga
+    this.loadingVersion = false;
+    // El projectId se intentará obtener cuando el usuario acepte la invitación
+  }
+  
+  /**
+   * Carga el contenido del diagrama (versiones)
+   */
+  private loadDiagramContent() {
+    // Si hay versionId en la URL, cargar esa versión específica
+    if (this.versionId) {
+      this.loadSpecificVersion(this.versionId);
+    } else {
+      // Si no hay versionId, cargar la última versión
+      this.loadLatestVersion();
+    }
+  }
+  
+  /**
+   * Acepta la invitación y une al usuario al proyecto
+   */
+  acceptInvitation() {
+    this.joiningProject = true;
+    
+    // Estrategia 1: Intentar usar el diagramId directamente como projectId
+    // Muchas veces en aplicaciones el diagramId puede correlacionarse con projectId    
+    this.membersService.joinProject(this.diagramId).subscribe({
+      next: (response) => {
+        this.joiningProject = false;
+        this.showInvitationModal = false;
+        // Recargar la página para obtener los nuevos permisos
+        window.location.reload();
+      },
+      error: (error) => {
+        
+        // Estrategia 2: Intentar usar joinProjectByDiagram
+        this.membersService.joinProjectByDiagram(this.diagramId, 'diagram').subscribe({
+          next: (response) => {
+            this.joiningProject = false;
+            this.showInvitationModal = false;
+            window.location.reload();
+          },
+          error: (altError) => {
+            
+            // Estrategia 3: Intentar usar endpoint específico de invitaciones
+            this.membersService.acceptDiagramInvitation(this.diagramId).subscribe({
+              next: (response) => {
+                this.joiningProject = false;
+                this.showInvitationModal = false;
+                window.location.reload();
+              },
+              error: (invError) => {
+                
+                // Estrategia 4: Intentar endpoint de colaboración
+                this.membersService.joinViaCollaboration(this.diagramId).subscribe({
+                  next: (response) => {
+                    this.joiningProject = false;
+                    this.showInvitationModal = false;
+                    window.location.reload();
+                  },
+                  error: (collabError) => {
+                    
+                    // Estrategia 5: Intentar obtener projectId desde versiones (como fallback final)
+                    this.tryJoinFromVersions();
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+  }
+  
+  /**
+   * Método de fallback para intentar unirse usando información de versiones
+   */
+  private tryJoinFromVersions() {
+    // Solo intentar si aún no hemos cerrado el modal
+    if (!this.joiningProject) return;
+    
+    this.versionService.listVersions(this.diagramId, '-created_at', 1).subscribe({
+      next: (versions: any) => {
+        let projectId = null;
+        
+        // Buscar el projectId en las versiones
+        if (versions.results && versions.results.length > 0) {
+          const version = versions.results[0];
+          projectId = version.diagram?.project || version.project || version.diagram_project;
+        }
+        
+        if (projectId && projectId !== this.diagramId) {
+          // Si encontramos un projectId diferente al diagramId, usarlo
+          this.membersService.joinProject(projectId).subscribe({
+            next: (response) => {
+              this.joiningProject = false;
+              this.showInvitationModal = false;
+              window.location.reload();
+            },
+            error: (error) => {
+              this.handleJoinFailure();
+            }
+          });
+        } else {
+          this.handleJoinFailure();
+        }
+      },
+      error: (error) => {
+        this.handleJoinFailure();
+      }
+    });
+  }
+  
+  /**
+   * Maneja el fallo al intentar unirse al proyecto
+   */
+  private handleJoinFailure() {
+    this.joiningProject = false;
+    // Mantener el modal abierto y mostrar mensaje de error
+    alert('No se pudo unir al proyecto automáticamente. Por favor, contacte al administrador del proyecto para que lo agregue manualmente.');
+  }
+  
+  /**
+   * Rechaza la invitación y redirige al dashboard
+   */
+  declineInvitation() {
+    this.showInvitationModal = false;
+    this.router.navigate(['/dashboard']);
+  }
 
     ngOnInit(): void {
       // Obtener diagramId de la URL
@@ -1008,18 +1154,21 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
           next: (resp: { members: { id: string; name: string; email?: string; avatarUrl?: string }[] }) => {
             // Al cargar los miembros, fusionar con el estado de conexión actual
             this.updateCollabMembers(resp.members || []);
+            // Cargar contenido del diagrama si es miembro
+            this.loadDiagramContent();
           },
-          error: (err: unknown) => {
+          error: (err: any) => {
+            // Si es error 401 o 403, el usuario no es miembro del proyecto
+            if (err.status === 401 || err.status === 403) {
+              this.handleNonMemberAccess();
+              // NO cargar contenido del diagrama cuando se muestra el modal
+              return;
+            } else {
+              // Otros errores, intentar cargar contenido normalmente
+              this.loadDiagramContent();
+            }
           }
         });
-        // Si hay versionId en la URL, cargar esa versión específica
-        if (this.versionId) {
-          this.loadSpecificVersion(this.versionId);
-        } else {
-          // Si no hay versionId, cargar la última versión
-          this.loadLatestVersion();
-        }
-      } else {
       }
     }
 
@@ -1044,6 +1193,11 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
 
   // Cargar una versión específica
   private loadSpecificVersion(versionId: string): void {
+    // Si ya se está mostrando el modal de invitación, no intentar cargar versión
+    if (this.showInvitationModal) {
+      return;
+    }
+    
     this.loadingVersion = true;
     this.versionService.getVersion(versionId).subscribe({
       next: (data) => {
@@ -1055,12 +1209,22 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       },
       error: (err) => {
         this.loadingVersion = false;
+        
+        // Si es error de permisos y aún no se muestra el modal, mostrarlo
+        if ((err.status === 401 || err.status === 403) && !this.showInvitationModal) {
+          this.handleNonMemberAccess();
+        }
       }
     });
   }
 
   // Cargar la versión más reciente del diagrama
   private loadLatestVersion(): void {
+    // Si ya se está mostrando el modal de invitación, no intentar cargar versiones
+    if (this.showInvitationModal) {
+      return;
+    }
+    
     this.loadingVersion = true;
     this.versionService.listVersions(this.diagramId, '-created_at').subscribe({
       next: (response: any) => {
@@ -1074,6 +1238,11 @@ export class DiagramShowComponent implements OnInit, OnDestroy, AfterViewInit {
       },
       error: (err: any) => {
         this.loadingVersion = false;
+        
+        // Si es error de permisos y aún no se muestra el modal, mostrarlo
+        if ((err.status === 401 || err.status === 403) && !this.showInvitationModal) {
+          this.handleNonMemberAccess();
+        }
       }
     });
   }

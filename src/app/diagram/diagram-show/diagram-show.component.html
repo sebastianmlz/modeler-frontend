@@ -44,6 +44,46 @@
 			<button (click)="exportSpringBootBackend()" style="background: #059669; color: #fff; border: none; border-radius: 4px; padding: 0.28rem 0.85rem; font-weight: 500; font-size: 0.93rem; cursor: pointer; min-width: 0;">Descargar backend spring boot</button>
 	</div>
 </div>
+
+<!-- Modal de invitación para usuarios no miembros -->
+<div *ngIf="showInvitationModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+	<div style="background: #fff; border-radius: 8px; padding: 2rem; max-width: 500px; width: 90%; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);">
+		<div style="text-align: center; margin-bottom: 1.5rem;">
+			<div style="width: 64px; height: 64px; background: #3b82f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+				<svg style="width: 32px; height: 32px; color: white;" fill="currentColor" viewBox="0 0 20 20">
+					<path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"></path>
+				</svg>
+			</div>
+			<h2 style="font-size: 1.5rem; font-weight: 600; color: #1f2937; margin: 0 0 0.5rem 0;">Invitación al Proyecto</h2>
+			<p style="color: #6b7280; margin: 0; line-height: 1.5;">Has sido invitado a colaborar en este proyecto UML. ¿Te gustaría unirte como miembro?</p>
+		</div>
+		
+		<div *ngIf="joiningProject" style="text-align: center; margin: 1rem 0;">
+			<div style="display: inline-block; width: 20px; height: 20px; border: 2px solid #3b82f6; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+			<p style="color: #6b7280; margin: 0.5rem 0 0 0;">Procesando invitación...</p>
+		</div>
+		
+		<div *ngIf="!joiningProject" style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+			<button 
+				(click)="declineInvitation()"
+				style="flex: 1; padding: 0.75rem 1.5rem; background: #f3f4f6; color: #374151; border: none; border-radius: 6px; font-weight: 500; cursor: pointer; transition: background-color 0.15s;">
+				No, gracias
+			</button>
+			<button 
+				(click)="acceptInvitation()"
+				style="flex: 1; padding: 0.75rem 1.5rem; background: #3b82f6; color: white; border: none; border-radius: 6px; font-weight: 500; cursor: pointer; transition: background-color 0.15s;">
+				Aceptar y unirme
+			</button>
+		</div>
+	</div>
+</div>
+
+<style>
+@keyframes spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+</style>
 <!-- El contenido principal -->
 <div style="display: flex; height: calc(100vh - 56px); box-sizing: border-box;">
 	<!-- Sidebar a la izquierda -->
